@@ -2,8 +2,8 @@ libDAI  -  A free/open source C++ library for Discrete Approximate Inference
 
 -------------------------------------------------------------------------------
 
-Version:  git HEAD
-Date:     September 17, 2012 - or later
+Version:  0.3.2
+Date:     July 17, 2015
 See also: http://www.libdai.org
 
 -------------------------------------------------------------------------------
@@ -24,11 +24,10 @@ Citing libDAI
 
 If you write a scientific paper describing research that made substantive use
 of this library, please cite the following paper describing libDAI:
-
 Joris M. Mooij;
-libDAI: A free & open source C++ library for Discrete Approximate Inference in graphical models;
+libDAI: A free & open source C++ library for Discrete Approximate Inference in
+graphical models;
 Journal of Machine Learning Research, 11(Aug):2169-2173, 2010.
-
 In BiBTeX format (for your convenience):
 
 @article{Mooij_libDAI_10,
@@ -194,13 +193,13 @@ Building boost under Cygwin
   * Download the latest boost libraries from http://www.boost.org
   * Build the required boost libraries using:
 
-        ./bootstrap.sh –with-libraries=program_options,math,graph,test –prefix=/boost_root/
-        ./bjam
+      ./bootstrap.sh --with-libraries=program_options,math,graph,test --prefix=/boost_root/
+      ./bjam
 
   * In order to use dynamic linking, the boost .dll's should be somewhere in
     the path. This can be achieved by a command like:
 
-        export PATH=$PATH:/boost_root/stage/lib
+      export PATH=$PATH:/boost_root/stage/lib
 
 Building libDAI
 
@@ -223,7 +222,7 @@ If the build is successful, you can test the example program:
 
 or the more extensive test program:
 
-  tests/testdai –aliases tests/aliases.conf –filename tests/alarm.fg –methods JTREE_HUGIN BP_SEQMAX
+  tests/testdai --aliases tests/aliases.conf --filename tests/alarm.fg --methods JTREE_HUGIN BP_SEQMAX
 
 -------------------------------------------------------------------------------
 
@@ -262,7 +261,7 @@ Because building boost under Windows is tricky, I provide some guidance here.
   * The following command builds the boost libraries that are relevant for
     libDAI:
 
-        bjam –with-graph –with-math –with-program_options –with-test link=static runtime-link=shared
+      bjam --with-graph --with-math --with-program_options --with-test link=static runtime-link=shared
 
 Building GMP or MPIR under Windows
 
@@ -286,7 +285,7 @@ If the build is successful, you can test the example program:
 
 or the more extensive test program:
 
-  tests\testdai –aliases tests\aliases.conf –filename tests\alarm.fg –methods JTREE_HUGIN BP_SEQMAX
+  tests\testdai --aliases tests\aliases.conf --filename tests\alarm.fg --methods JTREE_HUGIN BP_SEQMAX
 
 -------------------------------------------------------------------------------
 
@@ -323,9 +322,9 @@ at the MatLab prompt), which performs exact inference by the junction tree
 algorithm and approximate inference by belief propagation on the ALARM network:
 
   cd path_to_libdai/matlab
-  [psi] = dai_readfg ('../tests/alarm.fg');
-  [logZ,q,md,qv,qf] = dai (psi, 'JTREE', '[updates=HUGIN,verbose=0]')
-  [logZ,q,md,qv,qf] = dai (psi, 'BP', '[updates=SEQMAX,tol=1e-9,maxiter=10000,logdomain=0]')
+[psi] = dai_readfg ('../tests/alarm.fg');
+[logZ,q,md,qv,qf] = dai (psi, 'JTREE', '[updates=HUGIN,verbose=0]')
+[logZ,q,md,qv,qf] = dai (psi, 'BP', '[updates=SEQMAX,tol=1e-9,maxiter=10000,logdomain=0]')
 
 where "path_to_libdai" has to be replaced with the directory in which libDAI
 was installed. For other algorithms and some default parameters, see the file

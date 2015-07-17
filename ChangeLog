@@ -1,21 +1,27 @@
-git HEAD
---------
-* Disabled debugging output in src/cobwebgraph.cpp to fix compilation issue under OSX
-* [Lee C Baker] patch in include/dai/enum.h to fix compilation issues on OSX related to std::wistream and std::wostream (another workaround would be to specify -std=c++11)
+libDAI-0.3.2 (2015-07-17)
+-------------------------
+
+Miscellaneous improvements:
 * [Charles Vaske] Various improvements to EM code, including interface changes
-* Fixed regression in SWIG interface caused by new build system (thanks to Benjamin Mumm for reporting this)
 * Added 'inclusive' argument to DAG::ancestors() and DAG::descendants()
 * [Julien Rebetez] added FactorGraph::printDot() to SWIG interface
-* Build system: optional compilation targets are now set in include/dai/dai_config.h instead of Makefile.ALL
-* Workaround for bug in Boost Graph Library version 1.54 ("The graph may not contain an edge with negative weight") by not using Prim's minimum spanning tree algorithm anymore
-* Removed conversion script FastInf->libDAI because it is buggy (uses wrong permutation of factor entries)
 * Extended SWIG python interface (inspired by Kyle Ellrott): inference is possible in Python now!
 * Added toString() formatting functions to the classes that had an output streaming operator<<
+* Merged Generalized Loop Correction code kindly provided by Siamak Ravanbakhsh
+
+Build system improvements:
+* Build system: optional compilation targets are now set in include/dai/dai_config.h instead of Makefile.ALL
+
+Bug fixes:
+* Disabled debugging output in src/cobwebgraph.cpp to fix compilation issue under OSX
+* [Lee C Baker] patch in include/dai/enum.h to fix compilation issues on OSX related to std::wistream and std::wostream (another workaround would be to specify -std=c++11)
+* Fixed regression in SWIG interface caused by new build system (thanks to Benjamin Mumm for reporting this)
+* Workaround for bug in Boost Graph Library version 1.54 ("The graph may not contain an edge with negative weight") by not using Prim's minimum spanning tree algorithm anymore
+* Removed conversion script FastInf->libDAI because it is buggy (uses wrong permutation of factor entries)
 * Replaced all occurrences of std::size_t by size_t to avoid SWIG problems
 * Fixed division-by-zero issue in pow() which caused problems for GLC+ with sparse factors
 * Fixed bugs in unit test prob_test.cpp: replaced all occurences of
   BOOST_CHECK_CLOSE(...,(Real)0.0,tol) with BOOST_CHECK_SMALL(...,tol)
-* Merged Generalized Loop Correction code kindly provided by Siamak Ravanbakhsh
 
 
 libDAI-0.3.1 (2012-09-17)
