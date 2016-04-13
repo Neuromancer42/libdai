@@ -47,17 +47,13 @@ else:
 
     # Bound treewidth for junctiontree
     do_jt = True
-    # TODO
-    #    try {
-    #        boundTreewidth(fg, &eliminationCost_MinFill, maxstates );
-    #    } catch( Exception &e ) {
-    #        if( e.getCode() == Exception::OUT_OF_MEMORY ) {
-    #            do_jt = false;
-    #            cout << "Skipping junction tree (need more than " << maxstates << " states)." << endl;
-    #        }
-    #        else
-    #            throw;
-    #    }
+    try:
+        dai.boundTreewidth( fg, dai.eliminationCost_MinFill, maxstates )
+        # TODO fix memory leak: no destructor for BigInt
+    except: # TODO cannot catch libDAI exceptions yet
+#       if( e.getCode() == Exception::OUT_OF_MEMORY ) TODO
+        do_jt = False
+        print "Skipping junction tree (need more than", maxstates, "states)."
 
     if do_jt:
         # Construct a JTree (junction tree) object from the FactorGraph fg
@@ -84,133 +80,116 @@ else:
         # Calculate joint state of all variables that has maximum probability
         jtmapstate = jtmap.findMaximum()
 
-        # Construct a BP (belief propagation) object from the FactorGraph fg
-        # using the parameters specified by opts and two additional properties,
-        # specifying the type of updates the BP algorithm should perform and
-        # whether they should be done in the real or in the logdomain
-        bpopts = opts
-        bpopts["updates"] = "SEQRND"
-        bpopts["logdomain"] = "0"
-        bp = dai.BP( fg, bpopts )
-        # Initialize belief propagation algorithm
-        bp.init()
-        # Run belief propagation algorithm
-        bp.run()
+    # Construct a BP (belief propagation) object from the FactorGraph fg
+    # using the parameters specified by opts and two additional properties,
+    # specifying the type of updates the BP algorithm should perform and
+    # whether they should be done in the real or in the logdomain
+    bpopts = opts
+    bpopts["updates"] = "SEQRND"
+    bpopts["logdomain"] = "0"
+    bp = dai.BP( fg, bpopts )
+    # Initialize belief propagation algorithm
+    bp.init()
+    # Run belief propagation algorithm
+    bp.run()
 
-        # Construct a BP (belief propagation) object from the FactorGraph fg
-        # using the parameters specified by opts and two additional properties,
-        # specifying the type of updates the BP algorithm should perform and
-        # whether they should be done in the real or in the logdomain
-        #
-        # Note that inference is set to MAXPROD, which means that the object
-        # will perform the max-product algorithm instead of the sum-product algorithm
-        mpopts = opts
-        mpopts["updates"] = "SEQRND"
-        mpopts["logdomain"] = "0"
-        mpopts["inference"] = "MAXPROD"
-        mpopts["damping"] = "0.1"
-        mp = dai.BP( fg, mpopts )
-        # Initialize max-product algorithm
-        mp.init()
-        # Run max-product algorithm
-        mp.run()
-        # Calculate joint state of all variables that has maximum probability
-        # based on the max-product result
-        mpstate = mp.findMaximum()
+    # Construct a BP (belief propagation) object from the FactorGraph fg
+    # using the parameters specified by opts and two additional properties,
+    # specifying the type of updates the BP algorithm should perform and
+    # whether they should be done in the real or in the logdomain
+    #
+    # Note that inference is set to MAXPROD, which means that the object
+    # will perform the max-product algorithm instead of the sum-product algorithm
+    mpopts = opts
+    mpopts["updates"] = "SEQRND"
+    mpopts["logdomain"] = "0"
+    mpopts["inference"] = "MAXPROD"
+    mpopts["damping"] = "0.1"
+    mp = dai.BP( fg, mpopts )
+    # Initialize max-product algorithm
+    mp.init()
+    # Run max-product algorithm
+    mp.run()
+    # Calculate joint state of all variables that has maximum probability
+    # based on the max-product result
+    mpstate = mp.findMaximum()
 
-        # Construct a decimation algorithm object from the FactorGraph fg
-        # using the parameters specified by opts and three additional properties,
-        # specifying that the decimation algorithm should use the max-product
-        # algorithm and should completely reinitalize its state at every step
-        decmapopts = opts
-        decmapopts["reinit"] = "1"
-        decmapopts["ianame"] = "BP"
-        decmapopts["iaopts"] = "[damping=0.1,inference=MAXPROD,logdomain=0,maxiter=1000,tol=1e-9,updates=SEQRND,verbose=1]"
-        decmap = dai.DecMAP( fg, decmapopts )
-        decmap.init()
-        decmap.run()
-        decmapstate = decmap.findMaximum()
+    # Construct a decimation algorithm object from the FactorGraph fg
+    # using the parameters specified by opts and three additional properties,
+    # specifying that the decimation algorithm should use the max-product
+    # algorithm and should completely reinitalize its state at every step
+    decmapopts = opts
+    decmapopts["reinit"] = "1"
+    decmapopts["ianame"] = "BP"
+    decmapopts["iaopts"] = "[damping=0.1,inference=MAXPROD,logdomain=0,maxiter=1000,tol=1e-9,updates=SEQRND,verbose=1]"
+    decmap = dai.DecMAP( fg, decmapopts )
+    decmap.init()
+    decmap.run()
+    decmapstate = decmap.findMaximum()
 
-        if do_jt:
-            # Report variable marginals for fg, calculated by the junction tree algorithm
-            print 'Exact variable marginals:'
-            for i in range(fg.nrVars()):                 # iterate over all variables in fg
-                print jt.belief(dai.VarSet(fg.var(i)))   # display the "belief" of jt for that variable
+    if do_jt:
+        # Report variable marginals for fg, calculated by the junction tree algorithm
+        print 'Exact variable marginals:'
+        for i in range(fg.nrVars()):                 # iterate over all variables in fg
+            print jt.belief(dai.VarSet(fg.var(i)))   # display the "belief" of jt for that variable
 
-        # Report variable marginals for fg, calculated by the belief propagation algorithm
-        print 'Approximate (loopy belief propagation) variable marginals:'
-        for i in range(fg.nrVars()):                     # iterate over all variables in fg
-            print bp.belief(dai.VarSet(fg.var(i)))       # display the belief of bp for that variable
+    # Report variable marginals for fg, calculated by the belief propagation algorithm
+    print 'Approximate (loopy belief propagation) variable marginals:'
+    for i in range(fg.nrVars()):                     # iterate over all variables in fg
+        print bp.belief(dai.VarSet(fg.var(i)))       # display the belief of bp for that variable
 
-        if do_jt:
-            # Report factor marginals for fg, calculated by the junction tree algorithm
-            print 'Exact factor marginals:'
-            for I in range(fg.nrFactors()):              # iterate over all factors in fg
-                print jt.belief(fg.factor(I).vars())     # display the "belief" of jt for the variables in that factor
+    if do_jt:
+        # Report factor marginals for fg, calculated by the junction tree algorithm
+        print 'Exact factor marginals:'
+        for I in range(fg.nrFactors()):              # iterate over all factors in fg
+            print jt.belief(fg.factor(I).vars())     # display the "belief" of jt for the variables in that factor
 
-        # Report factor marginals for fg, calculated by the belief propagation algorithm
-        print 'Approximate (loopy belief propagation) factor marginals:'
-        for I in range(fg.nrFactors()):                  # iterate over all factors in fg
-            print bp.belief(fg.factor(I).vars())         # display the belief of bp for the variables in that factor
+    # Report factor marginals for fg, calculated by the belief propagation algorithm
+    print 'Approximate (loopy belief propagation) factor marginals:'
+    for I in range(fg.nrFactors()):                  # iterate over all factors in fg
+        print bp.belief(fg.factor(I).vars())         # display the belief of bp for the variables in that factor
 
-        if do_jt:
-            # Report log partition sum (normalizing constant) of fg, calculated by the junction tree algorithm
-            print 'Exact log partition sum:', jt.logZ()
+    if do_jt:
+        # Report log partition sum (normalizing constant) of fg, calculated by the junction tree algorithm
+        print 'Exact log partition sum:', jt.logZ()
 
-        # Report log partition sum of fg, approximated by the belief propagation algorithm
-        print 'Approximate (loopy belief propagation) log partition sum:', bp.logZ()
+    # Report log partition sum of fg, approximated by the belief propagation algorithm
+    print 'Approximate (loopy belief propagation) log partition sum:', bp.logZ()
 
-        if do_jt:
-            # Report exact MAP variable marginals
-            print 'Exact MAP variable marginals:'
-            for i in range(fg.nrVars()):
-                print jtmap.belief(dai.VarSet(fg.var(i)))
-
-        # Report max-product variable marginals
-        print 'Approximate (max-product) MAP variable marginals:'
+    if do_jt:
+        # Report exact MAP variable marginals
+        print 'Exact MAP variable marginals:'
         for i in range(fg.nrVars()):
-            print mp.belief(dai.VarSet(fg.var(i)))
+            print jtmap.belief(dai.VarSet(fg.var(i)))
 
-        if do_jt:
-            # Report exact MAP factor marginals
-            print 'Exact MAP factor marginals:'
-            for I in range(fg.nrFactors()):
-                print jtmap.belief(fg.factor(I).vars()), '==', jtmap.belief(fg.factor(I).vars())
+    # Report max-product variable marginals
+    print 'Approximate (max-product) MAP variable marginals:'
+    for i in range(fg.nrVars()):
+        print mp.belief(dai.VarSet(fg.var(i)))
 
-        # Report max-product factor marginals
-        print 'Approximate (max-product) MAP factor marginals:'
+    if do_jt:
+        # Report exact MAP factor marginals
+        print 'Exact MAP factor marginals:'
         for I in range(fg.nrFactors()):
-            print mp.belief(fg.factor(I).vars()), '==', mp.belief(fg.factor(I).vars())
+            print jtmap.belief(fg.factor(I).vars()), '==', jtmap.belief(fg.factor(I).vars())
 
-        if do_jt:
-            # Report exact MAP joint state
-            hoie = dai.IntVector()
-            hoie.push_back( 0 )
-            hoie.push_back( 0 )
-            hoie.push_back( 0 )
-            hoie.push_back( 0 )
-            hoie.push_back( 0 )
-            hoie.push_back( 0 )
-            hoie.push_back( 0 )
-            hoie.push_back( 0 )
-            hoie.push_back( 0 )
-            hoie.push_back( 0 )
-            hoie.push_back( 0 )
-            hoie.push_back( 0 )
-            hoie.push_back( 0 )
-            hoie.push_back( 0 )
-            hoie.push_back( 0 )
-            hoie.push_back( 0 )
-            print 'Exact MAP state (log score =', fg.logScore( hoie ), '):'
-            for i in range(len(jtmapstate)):
-                print fg.var(i), ':', jtmapstate[i]
+    # Report max-product factor marginals
+    print 'Approximate (max-product) MAP factor marginals:'
+    for I in range(fg.nrFactors()):
+        print mp.belief(fg.factor(I).vars()), '==', mp.belief(fg.factor(I).vars())
 
-        # Report max-product MAP joint state
-        print 'Approximate (max-product) MAP state (log score =', fg.logScore( mpstate ), '):'
-        for i in range(len(mpstate)):
-            print fg.var(i), ':', mpstate[i]
+    if do_jt:
+        # Report exact MAP joint state
+        print 'Exact MAP state (log score =', fg.logScore( jtmapstate ), '):'
+        for i in range(len(jtmapstate)):
+            print fg.var(i), ':', jtmapstate[i]
 
-        # Report DecMAP joint state
-        print 'Approximate DecMAP state (log score =', fg.logScore( decmapstate ), '):'
-        for i in range(len(decmapstate)):
-            print fg.var(i), ':', decmapstate[i]
+    # Report max-product MAP joint state
+    print 'Approximate (max-product) MAP state (log score =', fg.logScore( mpstate ), '):'
+    for i in range(len(mpstate)):
+        print fg.var(i), ':', mpstate[i]
+
+    # Report DecMAP joint state
+    print 'Approximate DecMAP state (log score =', fg.logScore( decmapstate ), '):'
+    for i in range(len(decmapstate)):
+        print fg.var(i), ':', decmapstate[i]

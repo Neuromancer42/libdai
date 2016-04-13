@@ -12,6 +12,8 @@
 
 %include "std_string.i"
 %include "std_vector.i"
+%include "exception.i"
+%include "std_pair.i"
 %template(IntVector) std::vector<size_t>;
 //%include "std_set.i"  /* for python */
 %include "../include/dai/dai_config.h"
@@ -126,6 +128,19 @@ typedef std::vector<VecFactor> VecVecFactor;
     inline const char* __str__() const { return (*self).toString().c_str(); }  /* for python */
     inline std::string __str() const { return (*self).toString(); }  /* for octave */
 }
+
+// ************************************************************************************************
+%template(PairIntBigInt) std::pair<size_t,dai::BigInt>;
+%constant dai::greedyVariableElimination::eliminationCostFunction eliminationCost_MinNeighbors;
+%constant dai::greedyVariableElimination::eliminationCostFunction eliminationCost_MinWeight;
+%constant dai::greedyVariableElimination::eliminationCostFunction eliminationCost_MinFill;
+%constant dai::greedyVariableElimination::eliminationCostFunction eliminationCost_WeightedMinFill;
+%ignore dai::eliminationCost_MinNeighbors;
+%ignore dai::eliminationCost_MinWeight;
+%ignore dai::eliminationCost_MinFill;
+%ignore dai::eliminationCost_WeightedMinFill;
+%ignore operator<<(std::ostream&, const ClusterGraph&);
+%include "../include/dai/clustergraph.h"
 
 // ************************************************************************************************
 //%ignore operator<<(std::ostream&, const CobwebGraph&);
