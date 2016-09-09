@@ -332,6 +332,17 @@ tests/aliases.conf.
 
 -------------------------------------------------------------------------------
 
+Building the SWIG interface
+
+An experimental SWIG interface is available, supporting octave and python.
+
+It can be built as follows:
+
+	cd swig
+	make
+
+-------------------------------------------------------------------------------
+
 Building the documentation
 
 Install doxygen, graphviz and a TeX distribution and use
