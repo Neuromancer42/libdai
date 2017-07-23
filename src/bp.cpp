@@ -51,9 +51,10 @@ void BP::setProperties( const PropertySet &opts ) {
         props.verbose = opts.getStringAs<size_t>("verbose");
     else
         props.verbose = 0;
-    if( opts.hasKey("damping") )
+    if( opts.hasKey("damping") ) {
         props.damping = opts.getStringAs<Real>("damping");
-    else
+        clog << __LOGSTR__ << "Damping coefficient: " << props.damping << endl;
+    } else
         props.damping = 0.0;
     if( opts.hasKey("inference") )
         props.inference = opts.getStringAs<Properties::InfType>("inference");
@@ -335,6 +336,7 @@ Real BP::run() {
 
         if( props.verbose >= 3 )
             cerr << name() << "::run:  maxdiff " << maxDiff << " after " << _iters+1 << " passes" << endl;
+        clog << __LOGSTR__ << name() << "::run():  maxdiff " << maxDiff << " after " << _iters+1 << " passes" << endl;
     }
 
     if( maxDiff > _maxdiff )

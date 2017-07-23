@@ -156,8 +156,13 @@ std::istream& operator>> ( std::istream& is, FactorGraph &fg ) {
             map<long,size_t>::iterator vdi = vardims.find( labels[mi] );
             if( vdi != vardims.end() ) {
                 // check whether dimensions are consistent
-                if( vdi->second != dims[mi] )
+                if( vdi->second != dims[mi] ) {
+                    cerr << __FILE__ << ": " << __LINE__ << ". Reading factor " << I << "." << endl
+                         << "Variable with label " << boost::lexical_cast<string>(labels[mi]) << " has inconsistent dimensions." << endl
+                         << "vdi->second: " << vdi->second << endl
+                         << "dims[mi]: " << dims[mi] << endl;
                     DAI_THROWE(INVALID_FACTORGRAPH_FILE,"Variable with label " + boost::lexical_cast<string>(labels[mi]) + " has inconsistent dimensions.");
+                }
             } else
                 vardims[labels[mi]] = dims[mi];
             Ivars.push_back( Var(labels[mi], dims[mi]) );

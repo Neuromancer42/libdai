@@ -25,6 +25,20 @@
 #include <algorithm>
 #include <cerrno>
 
+#include <chrono>
+#include <ctime>
+
+#include <boost/lexical_cast.hpp>
+
+static inline std::string nowstr() {
+    auto today = std::chrono::system_clock::now();
+    time_t tt = std::chrono::system_clock::to_time_t(today);
+    std::string ans = ctime(&tt);
+    return ans.substr(0, ans.size() - 1);
+}
+
+#define __LOGSTR__ (nowstr() + " " + __FILE__ + ": " + boost::lexical_cast<string>(__LINE__) + ". ")
+
 #if defined(WINDOWS)
 #include <cstdint> // only defined in C++11 and higher, but needed for Win64 builds in order to enable conditional code in MPIR library
 #endif

@@ -36,9 +36,9 @@ CCO=-o
 # Flags for the C++ compiler
 CCFLAGS=-Wno-deprecated -Wall -W -Wextra -fpic
 # Flags to add in debugging mode (if DEBUG=true)
-CCDEBUGFLAGS=-O3 -g -DDAI_DEBUG
+CCDEBUGFLAGS=-std=c++11 -O3 -g -DDAI_DEBUG
 # Flags to add in non-debugging mode (if DEBUG=false)
-CCNODEBUGFLAGS=-O3
+CCNODEBUGFLAGS=-std=c++11 -O3
 # Standard include directories
 CCINC=-Iinclude
 
