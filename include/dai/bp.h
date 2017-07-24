@@ -221,6 +221,9 @@ class BP : public DAIAlgFG {
         void clearSentMessages() { _sentMessages.clear(); }
     //@}
 
+        virtual Real run(size_t nIters);
+        virtual Real getDampingCoefficient();
+
     protected:
         /// Returns constant reference to message from the \a _I 'th neighbor of variable \a i to variable \a i
         const Prob & message(size_t i, size_t _I) const { return _edges[i][_I].message; }

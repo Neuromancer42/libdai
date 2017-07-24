@@ -51,10 +51,9 @@ void BP::setProperties( const PropertySet &opts ) {
         props.verbose = opts.getStringAs<size_t>("verbose");
     else
         props.verbose = 0;
-    if( opts.hasKey("damping") ) {
+    if( opts.hasKey("damping") )
         props.damping = opts.getStringAs<Real>("damping");
-        clog << __LOGSTR__ << "Damping coefficient: " << props.damping << endl;
-    } else
+    else
         props.damping = 0.0;
     if( opts.hasKey("inference") )
         props.inference = opts.getStringAs<Properties::InfType>("inference");
@@ -261,6 +260,107 @@ void BP::calcNewMessage( size_t i, size_t _I ) {
 }
 
 
+Real BP::getDampingCoefficient() {
+    return props.damping;
+}
+
+// BP::run does not check for NANs for performance reasons
+// Somehow NaNs do not often occur in BP...
+Real BP::run(size_t nIters) {
+    if( props.verbose >= 1 )
+        cerr << "Starting " << identify() << "...";
+    if( props.verbose >= 3)
+        cerr << endl;
+
+    double tic = toc();
+
+    // do several passes over the network until maximum number of iterations has
+    // been reached or until the maximum belief difference is smaller than tolerance
+    Real maxDiff = INFINITY;
+    for( ; _iters < props.maxiter && maxDiff > props.tol && (toc() - tic) < props.maxtime; _iters++ ) {
+        if( props.updates == Properties::UpdateType::SEQMAX ) {
+            if( _iters == 0 ) {
+                // do the first pass
+                for( size_t i = 0; i < nrVars(); ++i )
+                  bforeach( const Neighbor &I, nbV(i) )
+                      calcNewMessage( i, I.iter );
+            }
+            // Maximum-Residual BP [\ref EMK06]
+            for( size_t t = 0; t < _updateSeq.size(); ++t ) {
+                // update the message with the largest residual
+                size_t i, _I;
+                findMaxResidual( i, _I );
+                updateMessage( i, _I );
+
+                // I->i has been updated, which means that residuals for all
+                // J->j with J in nb[i]\I and j in nb[J]\i have to be updated
+                bforeach( const Neighbor &J, nbV(i) ) {
+                    if( J.iter != _I ) {
+                        bforeach( const Neighbor &j, nbF(J) ) {
+                            size_t _J = j.dual;
+                            if( j != i )
+                                calcNewMessage( j, _J );
+                        }
+                    }
+                }
+            }
+        } else if( props.updates == Properties::UpdateType::PARALL ) {
+            // Parallel updates
+            for( size_t i = 0; i < nrVars(); ++i )
+                bforeach( const Neighbor &I, nbV(i) )
+                    calcNewMessage( i, I.iter );
+
+            for( size_t i = 0; i < nrVars(); ++i )
+                bforeach( const Neighbor &I, nbV(i) )
+                    updateMessage( i, I.iter );
+        } else {
+            // Sequential updates
+            if( props.updates == Properties::UpdateType::SEQRND )
+                random_shuffle( _updateSeq.begin(), _updateSeq.end(), rnd );
+
+            bforeach( const Edge &e, _updateSeq ) {
+                calcNewMessage( e.first, e.second );
+                updateMessage( e.first, e.second );
+            }
+        }
+
+        // calculate new beliefs and compare with old ones
+        maxDiff = -INFINITY;
+        for( size_t i = 0; i < nrVars(); ++i ) {
+            Factor b( beliefV(i) );
+            maxDiff = std::max( maxDiff, dist( b, _oldBeliefsV[i], DISTLINF ) );
+            _oldBeliefsV[i] = b;
+        }
+        for( size_t I = 0; I < nrFactors(); ++I ) {
+            Factor b( beliefF(I) );
+            maxDiff = std::max( maxDiff, dist( b, _oldBeliefsF[I], DISTLINF ) );
+            _oldBeliefsF[I] = b;
+        }
+
+        if( props.verbose >= 3 )
+            cerr << name() << "::run:  maxdiff " << maxDiff << " after " << _iters+1 << " passes" << endl;
+        clog << __LOGSTR__ << name() << "::run():  maxdiff " << maxDiff << " after " << _iters+1 << " passes" << endl;
+    }
+
+    if( maxDiff > _maxdiff )
+        _maxdiff = maxDiff;
+
+    if( props.verbose >= 1 ) {
+        if( maxDiff > props.tol ) {
+            if( props.verbose == 1 )
+                cerr << endl;
+                cerr << name() << "::run:  WARNING: not converged after " << _iters << " passes (" << toc() - tic << " seconds)...final maxdiff:" << maxDiff << endl;
+        } else {
+            if( props.verbose >= 3 )
+                cerr << name() << "::run:  ";
+                cerr << "converged in " << _iters << " passes (" << toc() - tic << " seconds)." << endl;
+        }
+    }
+
+    return maxDiff;
+}
+
+
 // BP::run does not check for NANs for performance reasons
 // Somehow NaNs do not often occur in BP...
 Real BP::run() {
@@ -336,7 +436,6 @@ Real BP::run() {
 
         if( props.verbose >= 3 )
             cerr << name() << "::run:  maxdiff " << maxDiff << " after " << _iters+1 << " passes" << endl;
-        clog << __LOGSTR__ << name() << "::run():  maxdiff " << maxDiff << " after " << _iters+1 << " passes" << endl;
     }
 
     if( maxDiff > _maxdiff )
