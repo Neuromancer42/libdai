@@ -266,18 +266,16 @@ Real BP::getDampingCoefficient() {
 
 // BP::run does not check for NANs for performance reasons
 // Somehow NaNs do not often occur in BP...
-Real BP::run(size_t nIters) {
-    if( props.verbose >= 1 )
-        cerr << "Starting " << identify() << "...";
-    if( props.verbose >= 3)
-        cerr << endl;
+bool BP::run(size_t maxIters) {
+    clog << __LOGSTR__ << "Starting " << identify() << "..." << endl;
 
     double tic = toc();
 
     // do several passes over the network until maximum number of iterations has
     // been reached or until the maximum belief difference is smaller than tolerance
+    size_t numIters = 0;
     Real maxDiff = INFINITY;
-    for( ; _iters < props.maxiter && maxDiff > props.tol && (toc() - tic) < props.maxtime; _iters++ ) {
+    for (; numIters < maxIters && maxDiff > props.tol; numIters++, _iters++) {
         if( props.updates == Properties::UpdateType::SEQMAX ) {
             if( _iters == 0 ) {
                 // do the first pass
@@ -337,27 +335,22 @@ Real BP::run(size_t nIters) {
             _oldBeliefsF[I] = b;
         }
 
-        if( props.verbose >= 3 )
-            cerr << name() << "::run:  maxdiff " << maxDiff << " after " << _iters+1 << " passes" << endl;
-        clog << __LOGSTR__ << name() << "::run():  maxdiff " << maxDiff << " after " << _iters+1 << " passes" << endl;
+        clog << __LOGSTR__ << name() << "::run():  maxdiff " << maxDiff << " after " << numIters + 1 << " passes and "
+                           << toc() - tic << " seconds." << endl;
     }
 
     if( maxDiff > _maxdiff )
         _maxdiff = maxDiff;
 
-    if( props.verbose >= 1 ) {
-        if( maxDiff > props.tol ) {
-            if( props.verbose == 1 )
-                cerr << endl;
-                cerr << name() << "::run:  WARNING: not converged after " << _iters << " passes (" << toc() - tic << " seconds)...final maxdiff:" << maxDiff << endl;
-        } else {
-            if( props.verbose >= 3 )
-                cerr << name() << "::run:  ";
-                cerr << "converged in " << _iters << " passes (" << toc() - tic << " seconds)." << endl;
-        }
+    if (maxDiff <= props.tol) {
+        clog << __LOGSTR__ << name() << "::run:  converged in " << numIters << " passes and "
+                           << toc() - tic << " seconds. Final maxdiff: " << maxDiff << endl;
+        return true;
+    } else {
+        clog << __LOGSTR__ << name() << "::run:  WARNING: not converged after " << numIters << " passes and "
+                           << toc() - tic << " seconds. Final maxdiff: " << maxDiff << endl;
+        return false;
     }
-
-    return maxDiff;
 }
 
 

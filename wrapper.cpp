@@ -9,33 +9,78 @@ using namespace dai;
 #include <iostream>
 #include <map>
 #include <string>
+#include <vector>
 using namespace std;
 
-static size_t numIters;
 static FactorGraph fg;
-static map<int, bool> evidence;
-static BP *bp = nullptr, *bpRestore = nullptr;
-static bool stale = true;
+static vector<BP> bpVec;
 
-bool runBP() {
-    if (stale) {
-        clog << __LOGSTR__ << "Computing marginal probabilities." << endl;
-        bool converged = bp->run(numIters);
-        if (converged) {
-            bpRestore = new BP(*bp);
-            clog << __LOGSTR__ << "Finished computing marginal probabilities. " << endl
-                               << "Executed " << bp->Iterations() << " iterations." << endl;
-        } else {
-            assert(bpRestore != nullptr);
-            bp = new BP(*bpRestore);
-            clog << __LOGSTR__ << "Belief propagation did not converge after " << numIters << " iterations. " << endl
-                               << "Restoring to backup point." << endl;
-        }
-        stale = false;
-        return converged;
+void queryVariable() {
+    int varIndex;
+    cin >> varIndex;
+    clog << __LOGSTR__ << "Q " << varIndex << endl;
+
+    auto ans = bpVec.back().belief(fg.var(varIndex)).get(1);
+    clog << __LOGSTR__ << "Returning " << ans << "." << endl;
+    cout << ans << endl;
+}
+
+void queryFactor() {
+    int factorIndex, valueIndex;
+    cin >> factorIndex >> valueIndex;
+    clog << __LOGSTR__ << "FQ " << factorIndex << " " << valueIndex << endl;
+
+    auto ans = bpVec.back().beliefF(factorIndex).get(valueIndex);
+    clog << __LOGSTR__ << "Returning " << ans << "." << endl;
+    cout << ans << endl;
+}
+
+void runBP() {
+    size_t maxIters;
+    cin >> maxIters;
+    clog << __LOGSTR__ << "BP " << maxIters << endl;
+
+    bool converged = bpVec.back().run(maxIters);
+    if (converged) {
+        clog << __LOGSTR__ << "Finished computing marginal probabilities. " << endl
+                           << "Executed " << bpVec.back().Iterations() << " iterations so far." << endl;
+        cout << "converged" << endl;
     } else {
-        return true;
+        clog << __LOGSTR__ << "Belief propagation did not converge after " << maxIters << " iterations." << endl;
+        cout << "diverged" << endl;
     }
+}
+
+void clamp() {
+    int varIndex;
+    string varValueStr;
+    cin >> varIndex >> varValueStr;
+    assert(varValueStr == "true" || varValueStr == "false");
+    clog << __LOGSTR__ << "O " << varIndex << " " << varValueStr << endl;
+
+    bool varValue = (varValueStr == "true");
+    clog << __LOGSTR__ << "Clamping variable " << varIndex << " to value " << varValue << "." << endl;
+    bpVec.back().clamp(varIndex, varValue ? 1 : 0);
+}
+
+void bpVecPush() {
+    clog << __LOGSTR__ << "PUSH" << endl;
+    bpVec.push_back(bpVec.back());
+    clog << __LOGSTR__ << "New bpVec.size(): " << bpVec.size() << endl;
+}
+
+void bpVecPop() {
+    clog << __LOGSTR__ << "POP" << endl;
+    bpVec.pop_back();
+    assert(bpVec.size() > 0);
+    clog << __LOGSTR__ << "New bpVec.size(): " << bpVec.size() << endl;
+}
+
+void bpVecFlatten() {
+    clog << __LOGSTR__ << "FLATTEN" << endl;
+    bpVec.erase(bpVec.begin(), bpVec.begin() + (bpVec.size() - 1));
+    assert(bpVec.size() == 1);
+    clog << __LOGSTR__ << "New bpVec.size(): " << bpVec.size() << endl;
 }
 
 int main(int argc, char *argv[]) {
@@ -45,7 +90,6 @@ int main(int argc, char *argv[]) {
     }
     char *factorGraphFileName = argv[1];
     double tolerance = boost::lexical_cast<double>(argv[2]);
-    numIters = boost::lexical_cast<size_t>(argv[3]);
 
     clog << __LOGSTR__ << "Hello!" << endl
                        << "wrapper.cpp compiled on " << __DATE__ << " at " << __TIME__ << "." << endl;
@@ -60,46 +104,25 @@ int main(int argc, char *argv[]) {
     opts.set("logdomain", false);
     // opts.set("damping", string("0.2"));
 
-    bp = new BP(fg, opts);
-    bp->init();
-    bpRestore = new BP(bp);
-    stale = true;
+    bpVec.push_back(BP(fg, opts));
 
     string cmdType;
     while (cin >> cmdType) {
         clog << __LOGSTR__ << "Read command " << cmdType << endl;
         if (cmdType == "Q") {
-            int varIndex;
-            cin >> varIndex;
-            clog << __LOGSTR__ << "Q " << varIndex << endl;
-            if (evidence.find(varIndex) == evidence.end()) {
-                clog << __LOGSTR__ << "Variable not part of evidence. Querying LibDAI." << endl;
-                cout << bp->belief(fg.var(varIndex)).get(1) << endl;
-            } else {
-                clog << __LOGSTR__ << "Variable previously clamped as evidence. Immediately returning value." << endl;
-                cout << evidence.at(varIndex) ? 1 : 0 << endl;
-            }
+            queryVariable();
         } else if (cmdType == "FQ") {
-            int factorIndex, valueIndex;
-            cin >> factorIndex >> valueIndex;
-            clog << __LOGSTR__ << "FQ " << factorIndex << " " << valueIndex << endl;
-            cout << bp->beliefF(factorIndex).get(valueIndex) << endl;
+            queryFactor();
         } else if (cmdType == "BP") {
-            bool converged = runBP();
-            if (converged) {
-                cout << "converged" << endl;
-            } else {
-                cout << "diverged" << endl;
-            }
+            runBP();
         } else if (cmdType == "O") {
-            int varIndex;
-            string varValueStr;
-            cin >> varIndex >> varValueStr;
-            assert(varValueStr == "true" || varValueStr == "false");
-            bool varValue = (varValueStr == "true");
-            clog << __LOGSTR__ << "Clamping variable " << varIndex << " to value " << varValue << "." << endl;
-            bp->clamp(varIndex, varValue ? 1 : 0);
-            stale = true;
+            clamp();
+        } else if (cmdType == "PUSH") {
+            bpVecPush();
+        } else if (cmdType == "POP") {
+            bpVecPop();
+        } else if (cmdType == "FLATTEN") {
+            bpVecFlatten();
         } else {
             assert(cmdType == "NL");
             cout << endl;
@@ -107,7 +130,5 @@ int main(int argc, char *argv[]) {
     }
 
     clog << __LOGSTR__ << "Bye!" << endl;
-    delete bp;
-    delete bpRestore;
     return 0;
 }

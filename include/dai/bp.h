@@ -221,7 +221,7 @@ class BP : public DAIAlgFG {
         void clearSentMessages() { _sentMessages.clear(); }
     //@}
 
-        virtual Real run(size_t nIters);
+        virtual bool run(size_t maxIters);
         virtual Real getDampingCoefficient();
 
     protected:
