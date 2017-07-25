@@ -61,12 +61,14 @@ void clamp() {
     bool varValue = (varValueStr == "true");
     clog << __LOGSTR__ << "Clamping variable " << varIndex << " to value " << varValue << "." << endl;
     bpVec.back().clamp(varIndex, varValue ? 1 : 0);
+    cout << "O " << varIndex << " " << varValueStr << endl;
 }
 
 void bpVecPush() {
     clog << __LOGSTR__ << "PUSH" << endl;
     bpVec.push_back(bpVec.back());
     clog << __LOGSTR__ << "New bpVec.size(): " << bpVec.size() << endl;
+    cout << bpVec.size() << endl;
 }
 
 void bpVecPop() {
@@ -74,6 +76,7 @@ void bpVecPop() {
     bpVec.pop_back();
     assert(bpVec.size() > 0);
     clog << __LOGSTR__ << "New bpVec.size(): " << bpVec.size() << endl;
+    cout << bpVec.size() << endl;
 }
 
 void bpVecFlatten() {
@@ -81,10 +84,11 @@ void bpVecFlatten() {
     bpVec.erase(bpVec.begin(), bpVec.begin() + (bpVec.size() - 1));
     assert(bpVec.size() == 1);
     clog << __LOGSTR__ << "New bpVec.size(): " << bpVec.size() << endl;
+    cout << bpVec.size() << endl;
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 4) {
+    if (argc < 3) {
         cerr << __LOGSTR__ << "Insufficient number of arguments." << endl;
         return 1;
     }
