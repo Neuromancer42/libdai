@@ -10,6 +10,7 @@
 #ifdef DAI_WITH_BP
 
 
+#include <cmath>
 #include <iostream>
 #include <sstream>
 #include <map>
@@ -324,19 +325,46 @@ bool BP::run(size_t maxIters) {
 
         // calculate new beliefs and compare with old ones
         maxDiff = -INFINITY;
+        map<int, size_t> diffHistogram;
+        const int minBucketIndex = -1;
+        int maxBucketIndex = 0;
+
         for( size_t i = 0; i < nrVars(); ++i ) {
             Factor b( beliefV(i) );
-            maxDiff = std::max( maxDiff, dist( b, _oldBeliefsV[i], DISTLINF ) );
+            Real iDist = dist( b, _oldBeliefsV[i], DISTLINF );
+            maxDiff = std::max( maxDiff, iDist );
+            if (iDist == 0) {
+                diffHistogram[0]++;
+            } else {
+                int bucketIndex = std::max(static_cast<int>(log2(iDist) - log2(props.tol)), minBucketIndex);
+                diffHistogram[bucketIndex]++;
+                maxBucketIndex = std::max(maxBucketIndex, bucketIndex);
+            }
             _oldBeliefsV[i] = b;
         }
         for( size_t I = 0; I < nrFactors(); ++I ) {
             Factor b( beliefF(I) );
-            maxDiff = std::max( maxDiff, dist( b, _oldBeliefsF[I], DISTLINF ) );
+            Real iDist = dist( b, _oldBeliefsF[I], DISTLINF );
+            maxDiff = std::max( maxDiff, iDist );
+            if (iDist == 0) {
+                diffHistogram[0]++;
+            } else {
+                int bucketIndex = std::max(static_cast<int>(log2(iDist) - log2(props.tol)), minBucketIndex);
+                diffHistogram[bucketIndex]++;
+                maxBucketIndex = std::max(maxBucketIndex, bucketIndex);
+            }
             _oldBeliefsF[I] = b;
         }
 
         clog << __LOGSTR__ << name() << "::run():  maxdiff " << maxDiff << " after " << numIters + 1 << " passes and "
-                           << toc() - tic << " seconds." << endl;
+                           << toc() - tic << " seconds. diffHistogram: ";
+        for (int i = minBucketIndex; i <= maxBucketIndex; i++) {
+            clog << "(" << i << ": " << diffHistogram[i] << ")";
+            if (i < maxBucketIndex) {
+                clog << " ";
+            }
+        }
+        clog << endl;
     }
 
     if( maxDiff > _maxdiff )
@@ -436,13 +464,15 @@ Real BP::run() {
 
     if( props.verbose >= 1 ) {
         if( maxDiff > props.tol ) {
-            if( props.verbose == 1 )
+            if( props.verbose == 1 ) {
                 cerr << endl;
                 cerr << name() << "::run:  WARNING: not converged after " << _iters << " passes (" << toc() - tic << " seconds)...final maxdiff:" << maxDiff << endl;
+            }
         } else {
-            if( props.verbose >= 3 )
+            if( props.verbose >= 3 ) {
                 cerr << name() << "::run:  ";
                 cerr << "converged in " << _iters << " passes (" << toc() - tic << " seconds)." << endl;
+            }
         }
     }
 
