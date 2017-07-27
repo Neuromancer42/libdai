@@ -334,9 +334,9 @@ bool BP::run(size_t maxIters) {
             Real iDist = dist( b, _oldBeliefsV[i], DISTLINF );
             maxDiff = std::max( maxDiff, iDist );
             if (iDist == 0) {
-                diffHistogram[0]++;
+                diffHistogram[minBucketIndex]++;
             } else {
-                int bucketIndex = std::max(static_cast<int>(log2(iDist) - log2(props.tol)), minBucketIndex);
+                int bucketIndex = std::max(static_cast<int>(ceil(log2(iDist) - log2(props.tol))), minBucketIndex);
                 diffHistogram[bucketIndex]++;
                 maxBucketIndex = std::max(maxBucketIndex, bucketIndex);
             }
@@ -347,9 +347,9 @@ bool BP::run(size_t maxIters) {
             Real iDist = dist( b, _oldBeliefsF[I], DISTLINF );
             maxDiff = std::max( maxDiff, iDist );
             if (iDist == 0) {
-                diffHistogram[0]++;
+                diffHistogram[minBucketIndex]++;
             } else {
-                int bucketIndex = std::max(static_cast<int>(log2(iDist) - log2(props.tol)), minBucketIndex);
+                int bucketIndex = std::max(static_cast<int>(ceil(log2(iDist) - log2(props.tol))), minBucketIndex);
                 diffHistogram[bucketIndex]++;
                 maxBucketIndex = std::max(maxBucketIndex, bucketIndex);
             }
@@ -359,9 +359,11 @@ bool BP::run(size_t maxIters) {
         clog << __LOGSTR__ << name() << "::run():  maxdiff " << maxDiff << " after " << numIters + 1 << " passes and "
                            << toc() - tic << " seconds. diffHistogram: ";
         for (int i = minBucketIndex; i <= maxBucketIndex; i++) {
-            clog << "(" << i << ": " << diffHistogram[i] << ")";
-            if (i < maxBucketIndex) {
-                clog << " ";
+            if (diffHistogram[i] > 0) {
+                clog << "(" << i << ": " << diffHistogram[i] << ")";
+                if (i < maxBucketIndex) {
+                    clog << " ";
+                }
             }
         }
         clog << endl;
