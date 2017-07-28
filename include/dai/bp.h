@@ -227,6 +227,8 @@ class BP : public DAIAlgFG {
 
         virtual bool run(size_t maxIters);
         virtual Real getDampingCoefficient();
+        virtual bool isVariableDead(size_t i);
+        virtual bool isFactorDead(size_t I);
 
     protected:
         /// Returns constant reference to message from the \a _I 'th neighbor of variable \a i to variable \a i

@@ -395,15 +395,26 @@ bool BP::run(size_t maxIters) {
     _deadVars.insert(nonConvergedVars.begin(), nonConvergedVars.end());
     _deadFactors.insert(nonConvergedFactors.begin(), nonConvergedFactors.end());
 
+    double fractionDead = static_cast<double>(_deadVars.size() + _deadFactors.size()) / (nrVars() + nrFactors());
+
     if (maxDiff <= props.tol) {
         clog << __LOGSTR__ << name() << "::run:  converged in " << numIters << " passes and "
-                           << toc() - tic << " seconds. Final maxdiff: " << maxDiff << endl;
+                           << toc() - tic << " seconds. " << fractionDead << ". Final maxdiff: " << maxDiff << endl;
         return true;
     } else {
         clog << __LOGSTR__ << name() << "::run:  WARNING: not converged after " << numIters << " passes and "
-                           << toc() - tic << " seconds. Final maxdiff: " << maxDiff << endl;
+                           << toc() - tic << " seconds. " << fractionDead << ". Final maxdiff: " << maxDiff << endl;
         return false;
     }
+}
+
+
+bool BP::isVariableDead(size_t i) {
+    return _deadVars.find(i) == _deadVars.end();
+}
+
+bool BP::isFactorDead(size_t I) {
+    return _deadFactors.find(I) == _deadFactors.end();
 }
 
 

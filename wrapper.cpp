@@ -35,6 +35,26 @@ void queryFactor() {
     cout << ans << endl;
 }
 
+void isVariableDead() {
+    int varIndex;
+    cin >> varIndex;
+    clog << __LOGSTR__ << "IVD " << varIndex << endl;
+
+    string ans = bpVec.back().isVariableDead(varIndex) ? "true" : "false";
+    clog << __LOGSTR__ << "Returning " << ans << "." << endl;
+    cout << ans << endl;
+}
+
+void isFactorDead() {
+    int factorIndex;
+    cin >> factorIndex;
+    clog << __LOGSTR__ << "IFD " << factorIndex << endl;
+
+    string ans = bpVec.back().isFactorDead(factorIndex) ? "true" : "false";
+    clog << __LOGSTR__ << "Returning " << ans << "." << endl;
+    cout << ans << endl;
+}
+
 void runBP() {
     size_t maxIters;
     cin >> maxIters;
@@ -117,6 +137,10 @@ int main(int argc, char *argv[]) {
             queryVariable();
         } else if (cmdType == "FQ") {
             queryFactor();
+        } else if (cmdType == "IVD") {
+            isVariableDead();
+        } else if (cmdType == "IFD") {
+            isFactorDead();
         } else if (cmdType == "BP") {
             runBP();
         } else if (cmdType == "O") {
