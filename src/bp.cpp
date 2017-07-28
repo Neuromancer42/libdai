@@ -410,11 +410,11 @@ bool BP::run(size_t maxIters) {
 
 
 bool BP::isVariableDead(size_t i) {
-    return _deadVars.find(i) == _deadVars.end();
+    return _deadVars.find(i) != _deadVars.end();
 }
 
 bool BP::isFactorDead(size_t I) {
-    return _deadFactors.find(I) == _deadFactors.end();
+    return _deadFactors.find(I) != _deadFactors.end();
 }
 
 
