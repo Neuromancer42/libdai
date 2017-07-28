@@ -272,6 +272,8 @@ bool BP::run(size_t maxIters) {
 
     double tic = toc();
 
+    set<size_t> nonConvergedVars, nonConvergedFactors;
+
     // do several passes over the network until maximum number of iterations has
     // been reached or until the maximum belief difference is smaller than tolerance
     size_t numIters = 0;
@@ -329,10 +331,20 @@ bool BP::run(size_t maxIters) {
         const int minBucketIndex = -1;
         int maxBucketIndex = 0;
 
+        nonConvergedVars.clear();
+        nonConvergedFactors.clear();
+
         for( size_t i = 0; i < nrVars(); ++i ) {
             Factor b( beliefV(i) );
             Real iDist = dist( b, _oldBeliefsV[i], DISTLINF );
-            maxDiff = std::max( maxDiff, iDist );
+
+            if (_deadVars.find(i) == _deadVars.end()) {
+                maxDiff = std::max( maxDiff, iDist );
+                if (iDist > props.tol) {
+                    nonConvergedVars.insert(i);
+                }
+            }
+
             if (iDist == 0) {
                 diffHistogram[minBucketIndex]++;
             } else {
@@ -345,7 +357,14 @@ bool BP::run(size_t maxIters) {
         for( size_t I = 0; I < nrFactors(); ++I ) {
             Factor b( beliefF(I) );
             Real iDist = dist( b, _oldBeliefsF[I], DISTLINF );
-            maxDiff = std::max( maxDiff, iDist );
+
+            if (_deadFactors.find(I) == _deadFactors.end()) {
+                maxDiff = std::max( maxDiff, iDist );
+                if (iDist > props.tol) {
+                    nonConvergedFactors.insert(I);
+                }
+            }
+
             if (iDist == 0) {
                 diffHistogram[minBucketIndex]++;
             } else {
@@ -356,8 +375,10 @@ bool BP::run(size_t maxIters) {
             _oldBeliefsF[I] = b;
         }
 
+        double yetToConvergeFraction = static_cast<double>(nonConvergedVars.size() + nonConvergedFactors.size()) / (nrVars() + nrFactors());
+
         clog << __LOGSTR__ << name() << "::run():  maxdiff " << maxDiff << " after " << numIters + 1 << " passes and "
-                           << toc() - tic << " seconds. diffHistogram: ";
+                           << toc() - tic << " seconds. " << yetToConvergeFraction << ". diffHistogram: ";
         for (int i = minBucketIndex; i <= maxBucketIndex; i++) {
             if (diffHistogram[i] > 0) {
                 clog << "(" << i << ": " << diffHistogram[i] << ")";
@@ -371,6 +392,8 @@ bool BP::run(size_t maxIters) {
 
     if( maxDiff > _maxdiff )
         _maxdiff = maxDiff;
+    _deadVars.insert(nonConvergedVars.begin(), nonConvergedVars.end());
+    _deadFactors.insert(nonConvergedFactors.begin(), nonConvergedFactors.end());
 
     if (maxDiff <= props.tol) {
         clog << __LOGSTR__ << name() << "::run:  converged in " << numIters << " passes and "

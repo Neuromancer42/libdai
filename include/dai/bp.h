@@ -19,6 +19,7 @@
 #ifdef DAI_WITH_BP
 
 
+#include <set>
 #include <string>
 #include <dai/daialg.h>
 #include <dai/factorgraph.h>
@@ -95,6 +96,9 @@ class BP : public DAIAlgFG {
         std::vector<Factor> _oldBeliefsF;
         /// Stores the update schedule
         std::vector<Edge> _updateSeq;
+
+        /// Dead variables and dead factors
+        std::set<size_t> _deadVars, _deadFactors;
 
     public:
         /// Parameters for BP
