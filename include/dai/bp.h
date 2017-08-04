@@ -97,8 +97,7 @@ class BP : public DAIAlgFG {
         /// Stores the update schedule
         std::vector<Edge> _updateSeq;
 
-        /// Dead variables and dead factors
-        std::set<size_t> _deadVars, _deadFactors;
+        std::vector<double> _lowPassBeliefs;
 
     public:
         /// Parameters for BP
@@ -225,10 +224,10 @@ class BP : public DAIAlgFG {
         void clearSentMessages() { _sentMessages.clear(); }
     //@}
 
-        virtual bool run(size_t maxIters);
-        virtual Real getDampingCoefficient();
-        virtual bool isVariableDead(size_t i);
-        virtual bool isFactorDead(size_t I);
+        double run(double tolerance, size_t minIters, size_t maxIters, size_t histLength);
+        double newBelief(size_t varIndex) const {
+            return _lowPassBeliefs[varIndex];
+        }
 
     protected:
         /// Returns constant reference to message from the \a _I 'th neighbor of variable \a i to variable \a i

@@ -10,12 +10,14 @@
 #ifdef DAI_WITH_BP
 
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
-#include <sstream>
 #include <map>
+#include <queue>
 #include <set>
-#include <algorithm>
+#include <sstream>
+
 #include <dai/bp.h>
 #include <dai/util.h>
 #include <dai/properties.h>
@@ -261,24 +263,44 @@ void BP::calcNewMessage( size_t i, size_t _I ) {
 }
 
 
-Real BP::getDampingCoefficient() {
-    return props.damping;
-}
-
 // BP::run does not check for NANs for performance reasons
 // Somehow NaNs do not often occur in BP...
-bool BP::run(size_t maxIters) {
-    clog << __LOGSTR__ << "Starting " << identify() << "..." << endl;
+double BP::run(double tolerance, size_t minIters, size_t maxIters, size_t histLength) {
+    assert(0 < tolerance);
+    assert(0 < histLength && histLength < minIters && minIters < maxIters);
+    clog << __LOGSTR__ << "Starting " << identify()
+                       << "...  tolerance: " << tolerance
+                       << ". minIters: " << minIters
+                       << ". maxIters: " << maxIters
+                       << ". histLength: " << histLength << "." << endl;
 
     double tic = toc();
 
-    set<size_t> nonConvergedVars, nonConvergedFactors;
-
-    // do several passes over the network until maximum number of iterations has
-    // been reached or until the maximum belief difference is smaller than tolerance
     size_t numIters = 0;
     Real maxDiff = INFINITY;
-    for (; numIters < maxIters && maxDiff > props.tol; numIters++, _iters++) {
+    double yetToConvergeFraction = 1.0;
+    double nodeFracTolerance = 0.0;
+    vector<queue<double>> beliefHist(nrVars());
+
+    enum class RunReturnReason { ALL_CONVERGED, BIG_FRAC_CONVERGED, DIVERGED };
+    RunReturnReason returnReason = RunReturnReason::DIVERGED;
+
+    for (; true; numIters++, _iters++) {
+        if (numIters >= minIters) {
+            nodeFracTolerance = static_cast<double>(numIters - minIters) / (maxIters - minIters);
+        }
+
+        if (maxDiff <= tolerance) {
+            returnReason = RunReturnReason::ALL_CONVERGED;
+            break;
+        } else if (numIters > minIters && yetToConvergeFraction < nodeFracTolerance) {
+            returnReason = RunReturnReason::BIG_FRAC_CONVERGED;
+            break;
+        } else if (numIters > maxIters) {
+            returnReason = RunReturnReason::DIVERGED;
+            break;
+        }
+
         if( props.updates == Properties::UpdateType::SEQMAX ) {
             if( _iters == 0 ) {
                 // do the first pass
@@ -330,19 +352,14 @@ bool BP::run(size_t maxIters) {
         map<int, size_t> diffHistogram;
         const int minBucketIndex = -1;
         int maxBucketIndex = 0;
-
-        nonConvergedVars.clear();
-        nonConvergedFactors.clear();
+        size_t nonConvergedElems = 0;
 
         for( size_t i = 0; i < nrVars(); ++i ) {
             Factor b( beliefV(i) );
             Real iDist = dist( b, _oldBeliefsV[i], DISTLINF );
-
-            if (_deadVars.find(i) == _deadVars.end()) {
-                maxDiff = std::max( maxDiff, iDist );
-                if (iDist > props.tol) {
-                    nonConvergedVars.insert(i);
-                }
+            maxDiff = std::max( maxDiff, iDist );
+            if (iDist > tolerance) {
+                nonConvergedElems++;
             }
 
             if (iDist == 0) {
@@ -353,16 +370,18 @@ bool BP::run(size_t maxIters) {
                 maxBucketIndex = std::max(maxBucketIndex, bucketIndex);
             }
             _oldBeliefsV[i] = b;
+
+            beliefHist[i].push(beliefV(i).get(1));
+            if (beliefHist[i].size() > histLength) {
+                beliefHist[i].pop();
+            }
         }
         for( size_t I = 0; I < nrFactors(); ++I ) {
             Factor b( beliefF(I) );
             Real iDist = dist( b, _oldBeliefsF[I], DISTLINF );
-
-            if (_deadFactors.find(I) == _deadFactors.end()) {
-                maxDiff = std::max( maxDiff, iDist );
-                if (iDist > props.tol) {
-                    nonConvergedFactors.insert(I);
-                }
+            maxDiff = std::max( maxDiff, iDist );
+            if (iDist > tolerance) {
+                nonConvergedElems++;
             }
 
             if (iDist == 0) {
@@ -375,10 +394,13 @@ bool BP::run(size_t maxIters) {
             _oldBeliefsF[I] = b;
         }
 
-        double yetToConvergeFraction = static_cast<double>(nonConvergedVars.size() + nonConvergedFactors.size()) / (nrVars() + nrFactors());
+        yetToConvergeFraction = static_cast<double>(nonConvergedElems) / (nrVars() + nrFactors());
 
-        clog << __LOGSTR__ << name() << "::run():  maxdiff " << maxDiff << " after " << numIters + 1 << " passes and "
-                           << toc() - tic << " seconds. " << yetToConvergeFraction << ". diffHistogram: ";
+        clog << __LOGSTR__ << name() << "::run():  maxdiff: " << maxDiff
+                                     << ". numIters: " << numIters
+                                     << ". Time elapsed: " << toc() - tic << " seconds. "
+                                     << "yetToConvergeFraction: " << yetToConvergeFraction << "." << endl;
+        clog << __LOGSTR__ << "diffHistogram: ";
         for (int i = minBucketIndex; i <= maxBucketIndex; i++) {
             if (diffHistogram[i] > 0) {
                 clog << "(" << i << ": " << diffHistogram[i] << ")";
@@ -392,29 +414,45 @@ bool BP::run(size_t maxIters) {
 
     if( maxDiff > _maxdiff )
         _maxdiff = maxDiff;
-    _deadVars.insert(nonConvergedVars.begin(), nonConvergedVars.end());
-    _deadFactors.insert(nonConvergedFactors.begin(), nonConvergedFactors.end());
 
-    double fractionDead = static_cast<double>(_deadVars.size() + _deadFactors.size()) / (nrVars() + nrFactors());
-
-    if (maxDiff <= props.tol) {
-        clog << __LOGSTR__ << name() << "::run:  converged in " << numIters << " passes and "
-                           << toc() - tic << " seconds. " << fractionDead << ". Final maxdiff: " << maxDiff << endl;
-        return true;
-    } else {
-        clog << __LOGSTR__ << name() << "::run:  WARNING: not converged after " << numIters << " passes and "
-                           << toc() - tic << " seconds. " << fractionDead << ". Final maxdiff: " << maxDiff << endl;
-        return false;
+    switch (returnReason) {
+    case RunReturnReason::ALL_CONVERGED:
+        _lowPassBeliefs = vector<Real>(nrVars());
+        for (size_t i = 0; i < nrVars(); i++) {
+            _lowPassBeliefs[i] = beliefV(i).get(1);
+        }
+        break;
+    case RunReturnReason::BIG_FRAC_CONVERGED:
+    case RunReturnReason::DIVERGED:
+        _lowPassBeliefs = vector<Real>(nrVars());
+        for (size_t i = 0; i < nrVars(); i++) {
+            assert(beliefHist[i].size() == histLength);
+            while (!beliefHist[i].empty()) {
+                _lowPassBeliefs[i] += beliefHist[i].front();
+                beliefHist[i].pop();
+            }
+            _lowPassBeliefs[i] /= histLength;
+        }
+        break;
     }
-}
 
+    switch (returnReason) {
+    case RunReturnReason::ALL_CONVERGED:
+        clog << __LOGSTR__ << name() << "::run:  converged in " << numIters << " passes and "
+                           << toc() - tic << " seconds. Final maxdiff: " << maxDiff << endl;
+        break;
+    case RunReturnReason::BIG_FRAC_CONVERGED:
+        clog << __LOGSTR__ << name() << "::run:  Sufficiently big fraction " << yetToConvergeFraction
+                                     << " of variables appeared to converge in " << numIters << " passes and "
+                                     << toc() - tic << " seconds. Final maxDiff: " << maxDiff << endl;
+        break;
+    case RunReturnReason::DIVERGED:
+        clog << __LOGSTR__ << name() << "::run:  WARNING: not converged after " << numIters << " passes and "
+                           << toc() - tic << " seconds. Final maxdiff: " << maxDiff << endl;
+        break;
+    }
 
-bool BP::isVariableDead(size_t i) {
-    return _deadVars.find(i) != _deadVars.end();
-}
-
-bool BP::isFactorDead(size_t I) {
-    return _deadFactors.find(I) != _deadFactors.end();
+    return yetToConvergeFraction;
 }
 
 
