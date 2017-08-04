@@ -31,12 +31,16 @@ else
 endif
 
 # Define build targets
-TARGETS:=lib tests utils examples
+ifneq (,$(findstring fir,$(HOSTNAME)))
+  TARGETS:=lib
+else
+  TARGETS:=lib tests utils examples
+endif
 ifdef WITH_MATLAB
   TARGETS:=$(TARGETS) matlabs
 endif
 ifneq (,$(findstring fir,$(HOSTNAME)))
-  TARGETS:=$(TARGETS) testregression testem
+  TARGETS:=$(TARGETS)
 else
   TARGETS:=$(TARGETS) unittests testregression testem
 endif
