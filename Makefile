@@ -35,7 +35,11 @@ TARGETS:=lib tests utils examples
 ifdef WITH_MATLAB
   TARGETS:=$(TARGETS) matlabs
 endif
-TARGETS:=$(TARGETS) unittests testregression testem
+ifneq (,$(findstring fir,$(HOSTNAME)))
+  TARGETS:=$(TARGETS) testregression testem
+else
+  TARGETS:=$(TARGETS) unittests testregression testem
+endif
 ifdef WITH_DOC
   TARGETS:=$(TARGETS) doc
 endif
