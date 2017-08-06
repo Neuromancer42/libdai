@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
     opts.set("tol", Real(1e-6));
     opts.set("verb", static_cast<size_t>(1));
     opts.set("updates", string("SEQRND")); // "PARALL", or "SEQFIX"
-    opts.set("logdomain", false);
+    opts.set("logdomain", true);
 
     bp = BP(fg, opts);
     bp.init();
