@@ -31,6 +31,8 @@ else
 endif
 
 # Define build targets
+# If the build is happening on a fir namchine, do not build all targets. Only build  the target 'lib'
+# This is because the required boost libraries (for other targets) are not available in the installation in chord-fork/libs
 ifneq (,$(findstring fir,$(HOSTNAME)))
   TARGETS:=lib
 else
