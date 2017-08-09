@@ -371,7 +371,11 @@ double BP::run(double tolerance, size_t minIters, size_t maxIters, size_t histLe
             }
             _oldBeliefsV[i] = b;
 
-            beliefHist[i].push(beliefV(i).get(1));
+            auto newBelief = beliefV(i).get(1);
+            auto newBeliefType = fpclassify(newBelief);
+            if (newBeliefType == FP_NORMAL || newBeliefType == FP_SUBNORMAL || newBeliefType == FP_ZERO) {
+                beliefHist[i].push(newBelief);
+            }
             if (beliefHist[i].size() > histLength) {
                 beliefHist[i].pop();
             }
@@ -426,12 +430,13 @@ double BP::run(double tolerance, size_t minIters, size_t maxIters, size_t histLe
     case RunReturnReason::DIVERGED:
         _lowPassBeliefs = vector<Real>(nrVars());
         for (size_t i = 0; i < nrVars(); i++) {
-            assert(beliefHist[i].size() == histLength);
+            assert(beliefHist[i].size() <= histLength);
+            size_t denom = beliefHist[i].size();
             while (!beliefHist[i].empty()) {
                 _lowPassBeliefs[i] += beliefHist[i].front();
                 beliefHist[i].pop();
             }
-            _lowPassBeliefs[i] /= histLength;
+            if (denom > 0) { _lowPassBeliefs[i] /= denom; }
         }
         break;
     }
