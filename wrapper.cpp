@@ -12,34 +12,30 @@ using namespace dai;
 #include <vector>
 using namespace std;
 
-
-struct clampedVar_s {
-   int varIndex;
-   bool varValue;
-};
-typedef struct clampedVar_s *clampedVarPtr_t;
-
 static FactorGraph fg;
-static BP *bp = NULL;
-static vector<clampedVarPtr_t> cvVec;
 static PropertySet opts;
-static bool bpHasRun = false;
- 
+static BP bp;
+static map<int, bool> clamps;
+
+void initBP() {
+    bp = BP(fg, opts);
+    for (const auto& clamp : clamps) {
+        int varIndex = clamp.first;
+        bool varValue = clamp.second;
+        bp.clamp(varIndex, varValue ? 1 : 0);
+    }
+    bp.init();
+}
 
 void queryVariable() {
     int varIndex;
     cin >> varIndex;
     clog << __LOGSTR__ << "Q " << varIndex << endl;
 
-    if (!bpHasRun) {
-       clog << __LOGSTR__ << "Error: BP has not been run" << endl;
-       cout << "-1.0" << endl;
-    } else {
-       // auto ans = bp.belief(fg.var(varIndex)).get(1);
-       auto ans = bp->newBelief(varIndex);
-       clog << __LOGSTR__ << "Returning " << ans << "." << endl;
-       cout << ans << endl;
-    }
+    // auto ans = bp.belief(fg.var(varIndex)).get(1);
+    auto ans = bp.newBelief(varIndex);
+    clog << __LOGSTR__ << "Returning " << ans << "." << endl;
+    cout << ans << endl;
 }
 
 void queryFactor() {
@@ -47,7 +43,7 @@ void queryFactor() {
     cin >> factorIndex >> valueIndex;
     clog << __LOGSTR__ << "FQ " << factorIndex << " " << valueIndex << endl;
 
-    auto ans = bp->beliefF(factorIndex).get(valueIndex);
+    auto ans = bp.beliefF(factorIndex).get(valueIndex);
     clog << __LOGSTR__ << "Returning " << ans << "." << endl;
     cout << ans << endl;
 }
@@ -58,23 +54,7 @@ void runBP() {
     cin >> tolerance >> minIters >> maxIters >> histLength;
     clog << __LOGSTR__ << "BP " << tolerance << " " << minIters << " " << maxIters << " " << histLength << endl;
 
-    if (bp != NULL) {
-       delete bp;
-    }
-    bp = new BP(fg, opts);
-    bp->init();
-
-    vector<clampedVarPtr_t>::iterator it = cvVec.begin();
-    while( it != cvVec.end()) {
-      int varIndex = (*it)->varIndex;
-      bool varValue = (*it)->varValue;
-      clog << __LOGSTR__ << "Clamping variable " << varIndex << " to value " << varValue << "." << endl;
-      bp->clamp(varIndex, varValue ? 1 : 0);
-      it++;
-    }
-
-    double yetToConvergeFraction = bp->run(tolerance, minIters, maxIters, histLength);
-    bpHasRun = true;
+    double yetToConvergeFraction = bp.run(tolerance, minIters, maxIters, histLength);
     cout << yetToConvergeFraction << endl;
 }
 
@@ -86,11 +66,8 @@ void clamp() {
     clog << __LOGSTR__ << "O " << varIndex << " " << varValueStr << endl;
 
     bool varValue = (varValueStr == "true");
-    clampedVarPtr_t cv = new clampedVar_s();
-    cv->varIndex = varIndex;
-    cv->varValue = varValue;
-    cvVec.push_back(cv);
-    bpHasRun = false;
+    clamps[varIndex] = varValue;
+    initBP();
     cout << "O " << varIndex << " " << varValueStr << endl;
 }
 
@@ -112,8 +89,7 @@ int main(int argc, char *argv[]) {
     opts.set("updates", string("SEQRND")); // "PARALL", or "SEQFIX"
     opts.set("logdomain", true);
 
-    bp = new BP(fg, opts);
-    bp->init();
+    initBP();
 
     string cmdType;
     while (cin >> cmdType) {
@@ -132,9 +108,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    for (std::vector<clampedVarPtr_t>::iterator it = cvVec.begin() ; it != cvVec.end(); ++it) {
-        delete (*it);
-    } 
     clog << __LOGSTR__ << "Bye!" << endl;
     return 0;
 }
