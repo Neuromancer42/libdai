@@ -108,8 +108,10 @@ class BP : public DAIAlgFG {
              *  - SEQFIX sequential updates using a fixed sequence
              *  - SEQRND sequential updates using a random sequence
              *  - SEQMAX maximum-residual updates [\ref EMK06]
+             *  - SEQRNDPAR sequential updates using a random sequence, parallelized with OpenMP. Non-deterministic.
+             *    Hack. Handle with care.
              */
-            DAI_ENUM(UpdateType,SEQFIX,SEQRND,SEQMAX,PARALL);
+            DAI_ENUM(UpdateType,SEQFIX,SEQRND,SEQMAX,PARALL,SEQRNDPAR);
 
             /// Enumeration of inference variants
             /** There are two inference variants:

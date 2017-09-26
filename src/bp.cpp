@@ -336,6 +336,16 @@ double BP::run(double tolerance, size_t minIters, size_t maxIters, size_t histLe
             for( size_t i = 0; i < nrVars(); ++i )
                 bforeach( const Neighbor &I, nbV(i) )
                     updateMessage( i, I.iter );
+        } else if (props.updates == Properties::UpdateType::SEQRNDPAR) {
+            // Sequential updates
+            random_shuffle(_updateSeq.begin(), _updateSeq.end(), rnd);
+
+            #pragma omp parallel for
+            for (auto it = _updateSeq.begin(); it < _updateSeq.end(); it++) {
+                const Edge& e = *it;
+                calcNewMessage( e.first, e.second );
+                updateMessage( e.first, e.second );
+            }
         } else {
             // Sequential updates
             if( props.updates == Properties::UpdateType::SEQRND )
@@ -510,6 +520,16 @@ Real BP::run() {
             for( size_t i = 0; i < nrVars(); ++i )
                 bforeach( const Neighbor &I, nbV(i) )
                     updateMessage( i, I.iter );
+        } else if (props.updates == Properties::UpdateType::SEQRNDPAR) {
+            // Sequential updates
+            random_shuffle(_updateSeq.begin(), _updateSeq.end(), rnd);
+
+            #pragma omp parallel for
+            for (auto it = _updateSeq.begin(); it < _updateSeq.end(); it++) {
+                const Edge& e = *it;
+                calcNewMessage( e.first, e.second );
+                updateMessage( e.first, e.second );
+            }
         } else {
             // Sequential updates
             if( props.updates == Properties::UpdateType::SEQRND )
