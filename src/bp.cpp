@@ -299,6 +299,9 @@ double BP::run(double tolerance, size_t minIters, size_t maxIters, size_t histLe
         } else if (numIters > maxIters) {
             returnReason = RunReturnReason::DIVERGED;
             break;
+        } else if ((toc() - tic) > props.maxtime) {
+            returnReason = RunReturnReason::DIVERGED;
+            break;
         }
 
         if( props.updates == Properties::UpdateType::SEQMAX ) {
