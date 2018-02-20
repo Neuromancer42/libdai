@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 curdir=`pwd`
-if [[ $HOSTNAME =~ "fir" ]]; then
+if [[ $HOSTNAME =~ "fir" || $HOSTNAME =~ "ae249" ]]; then
    # fir machines do not have boost and libgmp installed. Therefore, we use pre-compiled libraries that we install in chord-fork/libs.
    # Also, not all the libraries of boost are available in our installation (ex: -lboost_unit_test_framework is not available). 
    # Therefore, we suppress the build of unittests, utils, etc and build only the libdai library, if the build happens on a fir machine. This check is done using HOSTNAME, in the Makefile 

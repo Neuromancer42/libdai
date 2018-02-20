@@ -36,7 +36,11 @@ endif
 ifneq (,$(findstring fir,$(HOSTNAME)))
   TARGETS:=lib
 else
+ifneq (,$(findstring ae249,$(HOSTNAME)))
+  TARGETS:=lib
+else
   TARGETS:=lib tests utils examples
+endif
 endif
 ifdef WITH_MATLAB
   TARGETS:=$(TARGETS) matlabs
@@ -44,7 +48,11 @@ endif
 ifneq (,$(findstring fir,$(HOSTNAME)))
   TARGETS:=$(TARGETS)
 else
+ifneq (,$(findstring ae249,$(HOSTNAME)))
+  TARGETS:=$(TARGETS)
+else
   TARGETS:=$(TARGETS) unittests testregression testem
+endif
 endif
 ifdef WITH_DOC
   TARGETS:=$(TARGETS) doc
