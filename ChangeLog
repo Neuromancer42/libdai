@@ -1,6 +1,7 @@
 git HEAD
 --------
 
+* Fixed bug in include/dai/glc.h that confused swig [bug report by LaurentW]
 * Fixed bug in example.py [bug report by Elise van der Pol]
 
 

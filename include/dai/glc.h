@@ -207,7 +207,7 @@ class GLC : public DAIAlgCG {
              *  are constructed for them.
              *  With this convention OVDELTA here corresponds to DELTA using CVM (HAK).
              */
-            DAI_ENUM(RegionType,SINGLE,FACTOR,OVFACTOR,LOOP,OVLOOP,DELTA,OVDELTA)
+            DAI_ENUM(RegionType,SINGLE,FACTOR,OVFACTOR,LOOP,OVLOOP,DELTA,OVDELTA);
 
             /// Enumeration of different update schedules
             /** The following update schedules are defined:
