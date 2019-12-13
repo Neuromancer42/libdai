@@ -8,7 +8,7 @@ if [[ $HOSTNAME =~ "fir" || $HOSTNAME =~ "ae249" ]]; then
    g++ -std=c++11 -O2 -march=native -Wall -Wextra -Werror -I ./include -I ../libs/boost_1_61_0 -I ../libs/gmp-6.1.0 -Wl,-rpath -Wl,$curdir/../libs/gmp-6.1.0/installdir/lib -fopenmp wrapper.cpp ./lib/libdai.a -L ../libs/gmp-6.1.0/installdir/lib -lgmp -lgmpxx -o wrapper
 else
    make -j 8 && \
-   g++ -std=c++11 -O2 -march=native -Wall -Wextra -Werror -I ./include -lgmp -lgmpxx -fopenmp wrapper.cpp ./lib/libdai.a -o wrapper
+   g++ -std=c++11 -O2 -march=native -Wall -Wextra -Werror -I ./include wrapper.cpp ./lib/libdai.a -lgmp -lgmpxx -fopenmp -o wrapper
 fi
 
 exit $?
