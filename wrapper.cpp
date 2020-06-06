@@ -54,6 +54,7 @@ void runBP() {
     cin >> tolerance >> minIters >> maxIters >> histLength;
     clog << __LOGSTR__ << "BP " << tolerance << " " << minIters << " " << maxIters << " " << histLength << endl;
 
+    initBP();
     double yetToConvergeFraction = bp.run(tolerance, minIters, maxIters, histLength);
     cout << yetToConvergeFraction << endl;
 }
@@ -67,7 +68,6 @@ void clamp() {
 
     bool varValue = (varValueStr == "true");
     clamps[varIndex] = varValue;
-    initBP();
     cout << "O " << varIndex << " " << varValueStr << endl;
 }
 
