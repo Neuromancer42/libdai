@@ -71,6 +71,15 @@ void clamp() {
     cout << "O " << varIndex << " " << varValueStr << endl;
 }
 
+void unclamp() {
+    int varIndex;
+    cin >> varIndex;
+    assert(clamps.find(varIndex) != clamps.end());
+    clamps.erase(varIndex);
+    clog << __LOGSTR__ << "UC " << varIndex << endl;
+    cout << "UC " << varIndex << endl;
+}
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         cerr << __LOGSTR__ << "Insufficient number of arguments." << endl;
@@ -103,6 +112,8 @@ int main(int argc, char *argv[]) {
             runBP();
         } else if (cmdType == "O") {
             clamp();
+        } else if (cmdType == "UC") {
+            unclamp();
         } else {
             assert(cmdType == "NL");
             cout << endl;
