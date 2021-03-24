@@ -123,9 +123,9 @@ pushd chord-fork
   if [ -d "chord_incubator" ]; then
     rm -rf chord_incubator
   fi
-  git clone https://`echo $username`:`echo $passwd`@bitbucket.org/psl-lab/chord_incubator.git
+  git clone https://`echo $username`:`echo $passwd`@bitbucket.org/intelligent-programming/bingo_incubator.git
+  mv bingo_incubator chord_incubator
   pushd chord_incubator
-    git checkout 0b206e1421772bc1c9852c4c1823b247d255516f
     git apply $ERROR_RANKING_DIR/commands/config/chord_incubator.patch
     cp $ERROR_RANKING_DIR/commands/config/DataracePrintReport_cs.java src/chord/analyses/datarace/cs
     ln -s $ERROR_RANKING_DIR/commands/resources/idea/chord_incubator ./.idea
@@ -149,7 +149,7 @@ popd
 
 if [[ ! "$@" =~ "update" ]]; then
   pushd chord-fork
-    git clone https://`echo $username`:`echo $passwd`@bitbucket.org/psl-lab/mln_bench.git
+    git clone https://`echo $username`:`echo $passwd`@bitbucket.org/intelligent-programming/mln_bench.git
     git clone https://bitbucket.org/psl-lab/pjbench.git
     update_pjbench
 
