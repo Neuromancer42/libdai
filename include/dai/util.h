@@ -34,13 +34,13 @@
 
 
 #if defined(WINDOWS)
-    #include <boost/tr1/unordered_map.hpp> // only present in boost 1.37 and higher
+    #include <boost/unordered_map.hpp> // only present in boost 1.37 and higher
 #elif defined(CYGWIN)
-    #include <boost/tr1/unordered_map.hpp> // only present in boost 1.37 and higher
+    #include <boost/unordered_map.hpp> // only present in boost 1.37 and higher
 #elif defined(MACOSX)
-    #include <boost/tr1/unordered_map.hpp> // only present in boost 1.37 and higher
+    #include <boost/unordered_map.hpp> // only present in boost 1.37 and higher
 #else
-    #include <tr1/unordered_map> // only present in modern GCC distributions
+    #include <unordered_map> // only present in modern GCC distributions
 #endif
 
 
@@ -139,11 +139,22 @@ inline Real pow( Real x, Real y ) {
 }
 
 
-/// hash_map is an alias for \c std::tr1::unordered_map.
+/// hash_map is an alias for \c std::unordered_map.
 /** We use the (experimental) TR1 unordered_map implementation included in modern GCC distributions or in boost versions 1.37 and higher.
  */
+#if defined(WINDOWS)
 template <typename T, typename U, typename H = boost::hash<T> >
-    class hash_map : public std::tr1::unordered_map<T,U,H> {};
+    class hash_map : public boost::unordered_map<T,U,H> {};
+#elif defined(CYGWIN)
+template <typename T, typename U, typename H = boost::hash<T> >
+    class hash_map : public boost::unordered_map<T,U,H> {};
+#elif defined(MACOSX)
+template <typename T, typename U, typename H = boost::hash<T> >
+    class hash_map : public boost::unordered_map<T,U,H> {};
+#else
+template <typename T, typename U, typename H = boost::hash<T> >
+    class hash_map : public std::unordered_map<T,U,H> {};
+#endif
 
 
 /// Returns wall clock time in seconds
