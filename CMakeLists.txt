@@ -21,11 +21,5 @@ file(GLOB SOURCES src/*.cpp)
 add_library(dai SHARED ${SOURCES})
 target_link_libraries(dai ${LIBS})
 
-add_executable(multi-predictor wrapper/multipredict-wrapper.cpp)
-target_link_libraries(multi-predictor dai)
-
-add_executable(predictor wrapper/predict-wrapper.cpp)
-target_link_libraries(predictor dai)
-
-add_executable(updater wrapper/update-wrapper.cpp)
-target_link_libraries(updater dai)
+add_executable(swigwrapper wrapper/libdai-swig-wrapper-test.cpp)
+target_link_libraries(swigwrapper dai)
