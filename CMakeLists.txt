@@ -19,7 +19,15 @@ include_directories(include)
 
 file(GLOB SOURCES src/*.cpp)
 add_library(dai SHARED ${SOURCES})
+add_library(dai_static STATIC ${SOURCES})
 target_link_libraries(dai ${LIBS})
 
 add_executable(swigwrapper wrapper/libdai-swig-wrapper-test.cpp)
 target_link_libraries(swigwrapper dai)
+
+add_library(daifg SHARED wrapper/libdai-swig-wrapper_wrap.cxx)
+target_include_directories(daifg  SYSTEM
+        PRIVATE "/Library/Java/JavaVirtualMachines/jdk-11.0.14.jdk/Contents/Home/include"
+        PRIVATE "/Library/Java/JavaVirtualMachines/jdk-11.0.14.jdk/Contents/Home/include/darwin"
+        )
+target_link_libraries(daifg dai_static ${LIBS})
