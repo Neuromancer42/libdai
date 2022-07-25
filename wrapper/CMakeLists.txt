@@ -23,3 +23,5 @@ target_include_directories(daifg SYSTEM
         PRIVATE ${JNI_INCLUDE_DIRS}
         PRIVATE .)
 target_link_libraries(daifg dai)
+
+install(TARGETS daifg DESTINATION jnilib)
