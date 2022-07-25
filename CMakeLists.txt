@@ -22,7 +22,9 @@ add_library(dai ${SOURCES})
 set_property(TARGET dai PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(dai ${LIBS})
 
-add_subdirectory(utils)
+if(NOT WRAPPER_ONLY)
+    add_subdirectory(utils)
+endif()
 
 find_package(SWIG 4.0 COMPONENTS java)
 if(SWIG_FOUND)
