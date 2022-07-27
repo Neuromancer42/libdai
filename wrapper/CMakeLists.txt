@@ -22,6 +22,6 @@ swig_add_library(daifg
 target_include_directories(daifg SYSTEM
         PRIVATE ${JNI_INCLUDE_DIRS}
         PRIVATE .)
-target_link_libraries(daifg dai)
+target_link_libraries(daifg PRIVATE dai)
 
 install(TARGETS daifg DESTINATION jnilib)
