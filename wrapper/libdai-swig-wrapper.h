@@ -18,6 +18,7 @@ public:
         //std::clog << "LibDAI: Loading factor graph from " << fgFileName << std::endl;
         fg = new dai::FactorGraph();
         fg->ReadFromFile(fgFileName.c_str());
+        std::clog << "LibDAI: Loaded factor graph from " << fgFileName << std::endl;
 
         //std::clog << "LibDAI: Initializing BP inference engine." << std::endl;
         opts.set("maxiter", static_cast<size_t>(10000000));
@@ -26,8 +27,8 @@ public:
         opts.set("updates", std::string("SEQRND"));
         opts.set("logdomain", true);
         bp = new dai::BP(*fg, opts);
-
         activated = false;
+        std::clog << "LibDAI: BP initialized" << std::endl;
     }
 
     ~LibDAISWIGFactorGraph() {
