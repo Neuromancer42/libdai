@@ -34,12 +34,14 @@ public:
     ~LibDAISWIGFactorGraph() {
         delete fg;
         delete bp;
+        std::clog << "LibDAI: factor graph released" << std::endl;
     }
 
     void resetBP() {
-        //std::clog << "LibDAI: Re-Initializing BP inference engine." << std::endl;
         delete bp;
+        std::clog << "LibDAI: Re-Initializing BP inference engine." << std::endl;
         bp = new dai::BP(*fg, opts);
+        std::clog << "LibDAI: BP re-initialized" << std::endl;
         activated = false;
     }
 
