@@ -22,7 +22,7 @@ public:
 
         //std::clog << "LibDAI: Initializing BP inference engine." << std::endl;
         opts.set("maxiter", static_cast<size_t>(10000000));
-        opts.set("maxtime", dai::Real(3600));
+        opts.set("maxtime", dai::Real(7200));
         opts.set("tol", dai::Real(1e-6));
         opts.set("updates", std::string("SEQRND"));
         opts.set("logdomain", true);
@@ -49,8 +49,11 @@ public:
         std::clog << "LibDAI: BP started" << std::endl;
         bp->init();
         double yetToConvergeFraction = bp->run();
-        std::clog << "LibDAI: BP finished "
-            << "(converge fraction: " << yetToConvergeFraction << ")" << std::endl;
+        std::clog << "LibDAI: BP finished ("
+            << "iterations: " << bp->Iterations() << ","
+            << "converge fraction: " << yetToConvergeFraction
+            << ")"
+            << std::endl;
         activated = true;
     }
 

@@ -73,14 +73,15 @@ int main(int argc, char *argv[]) {
     dumpQueries(fg, qVars, pVars);
     clog << endl;
 
-    clog << "Posterior: " << endl;
-    fg.resetBP();
-    for (int i = 0; i < oVars.size(); ++i) {
-        fg.observeBernoulli(oVars[i], oVals[i]);
+    if(!oVars.empty()) {
+        clog << "Posterior: " << endl;
+        fg.resetBP();
+        for (int i = 0; i < oVars.size(); ++i) {
+            fg.observeBernoulli(oVars[i], oVals[i]);
+        }
+        fg.runBP();
+        dumpQueries(fg, qVars, pVars);
     }
-    fg.runBP();
-    dumpQueries(fg, qVars, pVars);
-
     return 0;
 }
 
