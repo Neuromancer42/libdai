@@ -6,6 +6,7 @@
 #define LIBDAI_LIBDAI_SWIG_WRAPPER_H
 
 #include <dai/alldai.h>
+#include <chrono>
 
 class LibDAISWIGFactorGraph {
     dai::FactorGraph* fg;
@@ -14,21 +15,25 @@ class LibDAISWIGFactorGraph {
     bool activated;
 
 public:
-    explicit LibDAISWIGFactorGraph(const std::string& fgFileName) {
+    explicit LibDAISWIGFactorGraph(const std::string& fgFileName, int maxiter, int maxtime, double tol) {
         //std::clog << "LibDAI: Loading factor graph from " << fgFileName << std::endl;
         fg = new dai::FactorGraph();
         fg->ReadFromFile(fgFileName.c_str());
         std::clog << "LibDAI: Loaded factor graph from " << fgFileName << std::endl;
 
         //std::clog << "LibDAI: Initializing BP inference engine." << std::endl;
-        opts.set("maxiter", static_cast<size_t>(10000000));
-        opts.set("maxtime", dai::Real(7200));
-        opts.set("tol", dai::Real(1e-6));
+        opts.set("maxiter", static_cast<size_t>(maxiter));
+        opts.set("maxtime", dai::Real(maxtime));
+        opts.set("tol", dai::Real(tol));
         opts.set("updates", std::string("SEQRND"));
         opts.set("logdomain", true);
         bp = new dai::BP(*fg, opts);
         activated = false;
-        std::clog << "LibDAI: BP initialized" << std::endl;
+        std::clog << "LibDAI: BP initialized ("
+            << "maxiter: " << maxiter << ", "
+            << "maxtime: " << maxtime << "sec" << ", "
+            << "tol: " << tol << ")"
+            << std::endl;
     }
 
     ~LibDAISWIGFactorGraph() {
@@ -48,11 +53,13 @@ public:
     void runBP() {
         std::clog << "LibDAI: BP started" << std::endl;
         bp->init();
+        auto startTime = std::chrono::steady_clock::now();
         double yetToConvergeFraction = bp->run();
+        auto endTime = std::chrono::steady_clock::now();
         std::clog << "LibDAI: BP finished ("
-            << "iterations: " << bp->Iterations() << ","
-            << "converge fraction: " << yetToConvergeFraction
-            << ")"
+            << "iterations: " << bp->Iterations() << ", "
+            << "converge fraction: " << yetToConvergeFraction << ", "
+            << "duration: " << std::chrono::duration_cast<std::chrono::minutes>(endTime - startTime).count() << "h" << ")"
             << std::endl;
         activated = true;
     }
