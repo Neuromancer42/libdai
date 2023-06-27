@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
     }
     char *fgFileName = argv[1];
     clog << "Loading factor graph " << fgFileName << endl;
-    LibDAISWIGFactorGraph fg(fgFileName);
+    LibDAISWIGFactorGraph fg(fgFileName, 10000000, 10800, 1e-6);
     clog << "Factor graph loaded." << endl;
 
     char *oFileName = argv[2];

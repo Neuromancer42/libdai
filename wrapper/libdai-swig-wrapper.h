@@ -30,9 +30,9 @@ public:
         bp = new dai::BP(*fg, opts);
         activated = false;
         std::clog << "LibDAI: BP initialized ("
-            << "maxiter: " << maxiter << ", "
-            << "maxtime: " << maxtime << "sec" << ", "
-            << "tol: " << tol << ")"
+            << "maxiter: " << opts.getStringAs<size_t>("maxiter") << ", "
+            << "maxtime: " << opts.getStringAs<dai::Real>("maxtime") << "sec" << ", "
+            << "tol: " << opts.getStringAs<dai::Real>("tol") << ")"
             << std::endl;
     }
 
@@ -52,14 +52,18 @@ public:
 
     void runBP() {
         std::clog << "LibDAI: BP started" << std::endl;
-        bp->init();
         auto startTime = std::chrono::steady_clock::now();
+        bp->init();
+        auto initTime = std::chrono::steady_clock::now();
+        std::clog << "LibDAI: BP initialized in "
+            << std::chrono::duration_cast<std::chrono::seconds>(initTime - startTime).count()
+            << "sec" << std::endl;
         double yetToConvergeFraction = bp->run();
         auto endTime = std::chrono::steady_clock::now();
         std::clog << "LibDAI: BP finished ("
             << "iterations: " << bp->Iterations() << ", "
             << "converge fraction: " << yetToConvergeFraction << ", "
-            << "duration: " << std::chrono::duration_cast<std::chrono::minutes>(endTime - startTime).count() << "h" << ")"
+            << "duration: " << std::chrono::duration_cast<std::chrono::minutes>(endTime - startTime).count() << "min" << ")"
             << std::endl;
         activated = true;
     }
