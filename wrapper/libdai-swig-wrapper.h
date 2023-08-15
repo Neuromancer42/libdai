@@ -105,6 +105,52 @@ public:
         auto ans = queryParamFactor(paramIndex);
         return ans[1];
     }
+
+    void runEM(const std::string& evidenceFile, const std::string& emFile) {
+        // ref: see example from https://staff.fnwi.uva.nl/j.m.mooij/libDAI/doc/example_sprinkler_em_8cpp-example.html
+        auto startTime = std::chrono::steady_clock::now();
+        // 1. construct evidence file
+        std::clog << "LibDAI: loading evidence from " << evidenceFile << std::endl;
+        dai::Evidence e;
+        std::ifstream iEvis(evidenceFile);
+        e.addEvidenceTabFile(iEvis, *fg);
+        auto tabLoadTime = std::chrono::steady_clock::now();
+        std::clog << "LibDAI: evidence of " << e.nrSamples() << " samples loaded in "
+                  << std::chrono::duration_cast<std::chrono::seconds>(tabLoadTime - startTime).count()
+                  << "sec" << std::endl;
+        // 2. init inference algo
+        std::clog << "LibDAI: BP started initialization ("
+                  << "maxiter: " << opts.getStringAs<size_t>("maxiter") << ", "
+                  << "maxtime: " << opts.getStringAs<dai::Real>("maxtime") << "sec" << ", "
+                  << "tol: " << opts.getStringAs<dai::Real>("tol") << ")"
+                  << std::endl;
+        bp->init();
+        auto bpInitTime = std::chrono::steady_clock::now();
+        std::clog << "LibDAI: BP initialized in "
+                  << std::chrono::duration_cast<std::chrono::seconds>(bpInitTime - tabLoadTime).count()
+                  << "sec" << std::endl;
+        // 3. load EM spec
+        std::clog << "LibDAI: EM started initialization"<< std::endl;
+        std::ifstream iEMs(emFile);
+        dai::EMAlg em(e, *bp, iEMs);
+        auto emInitTime = std::chrono::steady_clock::now();
+        std::clog << "LibDAI: EM initialized in "
+                  << std::chrono::duration_cast<std::chrono::seconds>(emInitTime - bpInitTime).count()
+                  << "sec" << std::endl;
+        // 4. iterating EM until convergence
+        auto iterStartTime = emInitTime;
+        while (!em.hasSatisfiedTermConditions()) {
+            dai::Real I = em.iterate();
+            auto iterEndTime = std::chrono::steady_clock::now();
+            std::clog << "Iteration " << em.Iterations()
+                      << " likelihood: " << I
+                      << " time: " << std::chrono::duration_cast<std::chrono::seconds>(iterEndTime - iterStartTime).count() << "sec"
+                      << std::endl;
+            iterStartTime = iterEndTime;
+        }
+        // 5. update learned factor graph
+        activated = true;
+    }
 };
 
 #endif //LIBDAI_LIBDAI_SWIG_WRAPPER_H

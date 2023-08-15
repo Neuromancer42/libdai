@@ -10,7 +10,7 @@ void dumpQueries(LibDAISWIGFactorGraph &fg, const vector<int> &qVars, const vect
 
 int main(int argc, char *argv[]) {
     if (argc != 5) {
-        cerr << "Usage: ./wrapper-test <factor-graph-file> <obs-file> <query-file> <param-file>" << endl;
+        cerr << "Usage: ./wrapper-test-bp <factor-graph-file> <obs-file> <query-file> <param-file>" << endl;
         return 1;
     }
     char *fgFileName = argv[1];

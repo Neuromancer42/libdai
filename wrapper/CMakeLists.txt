@@ -1,5 +1,8 @@
-add_executable(swigwrapper-test libdai-swig-wrapper-test.cpp)
-target_link_libraries(swigwrapper-test dai)
+add_executable(swigwrapper-test-bp libdai-swig-wrapper-test-bp.cpp)
+target_link_libraries(swigwrapper-test-bp dai)
+
+add_executable(swigwrapper-test-em libdai-swig-wrapper-test-em.cpp)
+target_link_libraries(swigwrapper-test-em dai)
 
 if(NOT DEFINED JAVA_HOME)
     message(STATUS "Finding java automatically")
