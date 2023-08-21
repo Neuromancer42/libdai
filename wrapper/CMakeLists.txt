@@ -1,8 +1,8 @@
 add_executable(swigwrapper-test-bp libdai-swig-wrapper-test-bp.cpp)
-target_link_libraries(swigwrapper-test-bp dai)
+target_link_libraries(swigwrapper-test-bp dai dai_ext)
 
 add_executable(swigwrapper-test-em libdai-swig-wrapper-test-em.cpp)
-target_link_libraries(swigwrapper-test-em dai)
+target_link_libraries(swigwrapper-test-em dai dai_ext)
 
 if(NOT DEFINED JAVA_HOME)
     message(STATUS "Finding java automatically")
@@ -25,6 +25,6 @@ swig_add_library(daifg
 target_include_directories(daifg SYSTEM
         PRIVATE ${JNI_INCLUDE_DIRS}
         PRIVATE .)
-target_link_libraries(daifg PRIVATE dai)
+target_link_libraries(daifg PRIVATE dai dai_ext)
 
 install(TARGETS daifg DESTINATION jnilib)

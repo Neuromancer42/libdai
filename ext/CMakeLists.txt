@@ -1,0 +1,5 @@
+file(GLOB EXT_SOURCES src/*.cpp)
+add_library(dai_ext ${EXT_SOURCES})
+set_property(TARGET dai_ext PROPERTY POSITION_INDEPENDENT_CODE ON)
+target_include_directories(dai_ext PUBLIC include)
+target_link_libraries(dai_ext dai)

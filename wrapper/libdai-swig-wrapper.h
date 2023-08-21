@@ -6,6 +6,7 @@
 #define LIBDAI_LIBDAI_SWIG_WRAPPER_H
 
 #include <dai/alldai.h>
+#include <dai_ext/multithread_emalg.h>
 #include <chrono>
 
 class LibDAISWIGFactorGraph {
@@ -25,7 +26,7 @@ public:
         opts.set("maxiter", static_cast<size_t>(maxiter));
         opts.set("maxtime", dai::Real(maxtime));
         opts.set("tol", dai::Real(tol));
-        opts.set("updates", std::string("SEQRND"));
+        opts.set("updates", std::string("SEQFIX"));
         opts.set("logdomain", true);
         bp = new dai::BP(*fg, opts);
         activated = false;
@@ -132,7 +133,7 @@ public:
         // 3. load EM spec
         std::clog << "LibDAI: EM started initialization"<< std::endl;
         std::ifstream iEMs(emFile);
-        dai::EMAlg em(e, *bp, iEMs);
+        dai::MultiEMAlg em(e, *bp, iEMs);
         auto emInitTime = std::chrono::steady_clock::now();
         std::clog << "LibDAI: EM initialized in "
                   << std::chrono::duration_cast<std::chrono::seconds>(emInitTime - bpInitTime).count()

@@ -26,6 +26,8 @@ if(NOT WRAPPER_ONLY)
     add_subdirectory(utils)
 endif()
 
+add_subdirectory(ext)
+
 find_package(SWIG 4.0 COMPONENTS java)
 if(SWIG_FOUND)
     message(STATUS "SWIG found: ${SWIG_EXECUTABLE} (version: ${SWIG_VERSION})")
