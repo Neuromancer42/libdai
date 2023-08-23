@@ -107,7 +107,7 @@ public:
         return ans[1];
     }
 
-    void runEM(const std::string& evidenceFile, const std::string& emFile) {
+    void runEM(const std::string& evidenceFile, const std::string& emFile, size_t max_jobs) {
         // ref: see example from https://staff.fnwi.uva.nl/j.m.mooij/libDAI/doc/example_sprinkler_em_8cpp-example.html
         auto startTime = std::chrono::steady_clock::now();
         // 1. construct evidence file
@@ -134,6 +134,7 @@ public:
         std::clog << "LibDAI: EM started initialization"<< std::endl;
         std::ifstream iEMs(emFile);
         dai::MultiEMAlg em(e, *bp, iEMs);
+        em.setMaxJobs(max_jobs);
         auto emInitTime = std::chrono::steady_clock::now();
         std::clog << "LibDAI: EM initialized in "
                   << std::chrono::duration_cast<std::chrono::seconds>(emInitTime - bpInitTime).count()

@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
     clog << endl;
 
     clog << "Posterior: " << endl;
-    fg.runEM(eFileName, emspecFileName);
+    fg.runEM(eFileName, emspecFileName, 8);
     dumpQueries(fg, qVars);
     return 0;
 }

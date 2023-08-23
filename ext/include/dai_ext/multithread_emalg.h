@@ -37,7 +37,7 @@ namespace dai {
         /// Convergence tolerance
         Real _log_z_tol;
 
-        size_t _max_threads;
+        size_t _max_jobs;
 
     public:
         /// Key for setting maximum iterations
@@ -61,7 +61,7 @@ namespace dai {
         MultiEMAlg(const Evidence &evidence, InfAlg &estep, std::vector<MaximizationStep> &msteps,
                    const PropertySet &termconditions)
                 : _evidence(evidence), _estep(estep), _msteps(msteps), _iters(0), _lastLogZ(),
-                  _max_iters(MAX_ITERS_DEFAULT), _log_z_tol(LOG_Z_TOL_DEFAULT), _max_threads(MAX_THREADS) {
+                  _max_iters(MAX_ITERS_DEFAULT), _log_z_tol(LOG_Z_TOL_DEFAULT), _max_jobs(MAX_THREADS) {
             setTermConditions(termconditions);
         }
 
@@ -80,7 +80,10 @@ namespace dai {
         void setTermConditions(const PropertySet &p);
 
         /// Set the number of max therads
-        /* void setMaxThreads(const size_t & max_threads) { _max_threads = max_threads; } */
+        void setMaxJobs(size_t max_jobs) {
+            std::clog << "LibDAI: set max num of jobs from " << _max_jobs << " to " << max_jobs << std::endl;
+            _max_jobs = max_jobs;
+        }
 
         /// Determine if the termination conditions have been met.
         /** There are two sufficient termination conditions:

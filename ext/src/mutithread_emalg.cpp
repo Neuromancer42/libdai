@@ -4,6 +4,7 @@
 
 #include "dai_ext/multithread_emalg.h"
 #include <future>
+#include <thread>
 
 namespace dai {
 
@@ -11,10 +12,10 @@ namespace dai {
     const std::string MultiEMAlg::LOG_Z_TOL_KEY("log_z_tol");
     const size_t MultiEMAlg::MAX_ITERS_DEFAULT = 30;
     const Real MultiEMAlg::LOG_Z_TOL_DEFAULT = 0.01;
-    const size_t MultiEMAlg::MAX_THREADS=10;
+    const size_t MultiEMAlg::MAX_THREADS=std::thread::hardware_concurrency();
 
     MultiEMAlg::MultiEMAlg( const Evidence &evidence, InfAlg &estep, std::istream &msteps_file)
-            : _evidence(evidence), _estep(estep), _msteps(), _iters(0), _lastLogZ(), _max_iters(MAX_ITERS_DEFAULT), _log_z_tol(LOG_Z_TOL_DEFAULT), _max_threads(MAX_THREADS)
+            : _evidence(evidence), _estep(estep), _msteps(), _iters(0), _lastLogZ(), _max_iters(MAX_ITERS_DEFAULT), _log_z_tol(LOG_Z_TOL_DEFAULT), _max_jobs(MAX_THREADS)
     {
         msteps_file.exceptions( std::istream::eofbit | std::istream::failbit | std::istream::badbit );
         size_t num_msteps = -1;
@@ -66,52 +67,38 @@ namespace dai {
         logZ = _estep.logZ();
 
         // define the task of computing estimations in parallel
-        const auto & estep = _estep;
         //std::mutex mstep_mutex;
-        auto e_func = [logZ/*, &estep, &mstep, &mstep_mutex*/](InfAlg * clamped, const Evidence::const_iterator::value_type& e, size_t id) -> Real {
-            printf("LibDAI: Expectation task %zu started\n", id);
-//            InfAlg* clamped = estep.clone();
+        auto e_func = [logZ](InfAlg * clamped, const Evidence::const_iterator::value_type& e, size_t id) -> Real {
+            std::clog << std::string("LibDAI: Expectation task ") + std::to_string(id) + " started\n";
             // apply evidence
             for (const auto & i : e)
                 clamped->clamp(clamped->fg().findVar(i.first), i.second);
             clamped->init();
             clamped->run();
 
-
-//            printf("LibDAI: Expectation task %zu collecting\n", id);
-//            {
-//                std::lock_guard<std::mutex> guard(mstep_mutex);
-//                mstep.addExpectations(*clamped);
-//            }
-
             Real single_likelihood = clamped->logZ() - logZ;
-            printf("LibDAI: Expectation task %zu finished\n", id);
-
-//            delete clamped;
+            std::clog << std::string("LibDAI: Expectation task ") + std::to_string(id) + " finished\n";
 
             return single_likelihood;
         };
 
 
-        size_t gnum = (_evidence.nrSamples() + _max_threads - 1) / _max_threads;
+        std::clog << std::string("LibDAI: Running in ") + std::to_string(_max_jobs) + " threads" << std::endl;
+        size_t gnum = (_evidence.nrSamples() + _max_jobs - 1) / _max_jobs;
 
-        std::vector<InfAlg*> clampeds;
         for (size_t gid = 0; gid < gnum; gid++) {
             std::vector<std::future<Real>> exp_tasks;
-            for (size_t id = gid * _max_threads; id < (gid + 1) * _max_threads && id < _evidence.nrSamples(); ++id) {
-                printf("LibDAI: Prepareing task %zu\n", id);
-                clampeds.push_back(estep.clone());
-            }
-            for (size_t id = gid * _max_threads; id < (gid + 1) * _max_threads && id < _evidence.nrSamples(); ++id) {
-                exp_tasks.push_back(std::async(std::launch::async, e_func, clampeds[id], _evidence.begin()[id], id));
+            std::vector<std::unique_ptr<InfAlg>> clampeds;
+            for (size_t id = gid * _max_jobs; id < (gid + 1) * _max_jobs && id < _evidence.nrSamples(); ++id) {
+                std::clog << std::string("LibDAI: Prepareing task ") + std::to_string(id) + "\n";
+                InfAlg* clamped = _estep.clone();
+                clampeds.emplace_back(clamped);
+                exp_tasks.push_back(std::async(std::launch::async, e_func, clamped, _evidence.begin()[id], id));
             }
             for (auto &t: exp_tasks)
                 likelihood += t.get();
-            for (size_t id = gid * _max_threads; id < (gid + 1) * _max_threads && id < _evidence.nrSamples(); ++id) {
-                mstep.addExpectations(*clampeds[id]);
-                delete clampeds[id];
-                clampeds[id] = nullptr;
-            }
+            for (auto &clamped: clampeds)
+                mstep.addExpectations(*clamped);
         }
 
         // Maximization of parameters
