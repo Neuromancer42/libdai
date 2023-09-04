@@ -4,6 +4,9 @@ target_link_libraries(swigwrapper-test-bp dai dai_ext)
 add_executable(swigwrapper-test-em libdai-swig-wrapper-test-em.cpp)
 target_link_libraries(swigwrapper-test-em dai dai_ext)
 
+add_executable(fgcheck fgcheck.cpp)
+target_link_libraries(fgcheck dai)
+
 if(NOT DEFINED JAVA_HOME)
     message(STATUS "Finding java automatically")
     find_package(Java 11 COMPONENTS Development REQUIRED)

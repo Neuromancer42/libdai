@@ -11,61 +11,94 @@
 
 class LibDAISWIGFactorGraph {
     dai::FactorGraph* fg;
-    dai::BP* bp;
+    dai::InfAlg* infalg;
     dai::PropertySet opts;
     bool activated;
+    dai::MultiEMAlg* em;
+    dai::Evidence* evi;
 
 public:
-    explicit LibDAISWIGFactorGraph(const std::string& fgFileName, int maxiter, int maxtime, double tol) {
+    LibDAISWIGFactorGraph(const std::string& fgFileName, int maxiter, int maxtime, double tol, const std::string& alg) {
         //std::clog << "LibDAI: Loading factor graph from " << fgFileName << std::endl;
         fg = new dai::FactorGraph();
         fg->ReadFromFile(fgFileName.c_str());
         std::clog << "LibDAI: Loaded factor graph from " << fgFileName << std::endl;
 
-        //std::clog << "LibDAI: Initializing BP inference engine." << std::endl;
         opts.set("maxiter", static_cast<size_t>(maxiter));
         opts.set("maxtime", dai::Real(maxtime));
         opts.set("tol", dai::Real(tol));
-        opts.set("updates", std::string("SEQFIX"));
-        opts.set("logdomain", true);
-        bp = new dai::BP(*fg, opts);
+
+        if (alg == "BP") {
+            std::clog << "LibDAI: Initializing loopy BP ("
+                      << "maxiter: " << opts.getStringAs<size_t>("maxiter") << ", "
+                      << "maxtime: " << opts.getStringAs<dai::Real>("maxtime") << "sec" << ", "
+                      << "tol: " << opts.getStringAs<dai::Real>("tol") << ")"
+                      << std::endl;
+            auto startTime = std::chrono::steady_clock::now();
+
+            opts.set("updates", std::string("SEQFIX"));
+            opts.set("logdomain", true);
+            infalg = new dai::BP(*fg, opts);
+            infalg->init();
+
+            auto initTime = std::chrono::steady_clock::now();
+            std::clog << "LibDAI: BP initialized in "
+                      << std::chrono::duration_cast<std::chrono::seconds>(initTime - startTime).count()
+                      << "sec" << std::endl;
+        } else if (alg == "MF") {
+            std::clog << "LibDAI: Initializing MF ("
+                      << "maxiter: " << opts.getStringAs<size_t>("maxiter") << ", "
+                      << "maxtime: " << opts.getStringAs<dai::Real>("maxtime") << "sec" << ", "
+                      << "tol: " << opts.getStringAs<dai::Real>("tol") << ")"
+                      << std::endl;
+            auto startTime = std::chrono::steady_clock::now();
+
+            opts.set("init", std::string("UNIFORM"));
+            opts.set("updates", std::string("NAIVE"));
+            infalg = new dai::MF(*fg, opts);
+            infalg->init();
+
+            auto initTime = std::chrono::steady_clock::now();
+            std::clog << "LibDAI: MF initialized in "
+                      << std::chrono::duration_cast<std::chrono::seconds>(initTime - startTime).count()
+                      << "sec" << std::endl;
+        }
+        em = nullptr;
+        evi = nullptr;
         activated = false;
-        std::clog << "LibDAI: BP initialized ("
-            << "maxiter: " << opts.getStringAs<size_t>("maxiter") << ", "
-            << "maxtime: " << opts.getStringAs<dai::Real>("maxtime") << "sec" << ", "
-            << "tol: " << opts.getStringAs<dai::Real>("tol") << ")"
-            << std::endl;
     }
 
     ~LibDAISWIGFactorGraph() {
         delete fg;
-        delete bp;
+        delete infalg;
+        delete em;
+        delete evi;
         std::clog << "LibDAI: factor graph released" << std::endl;
     }
 
-    void resetBP() {
-        delete bp;
-        std::clog << "LibDAI: Re-Initializing BP inference engine." << std::endl;
-        bp = new dai::BP(*fg, opts);
-        std::clog << "LibDAI: BP re-initialized" << std::endl;
+    void reset() {
+        std::clog << "LibDAI: Re-Initializing inference engine." << std::endl;
+        infalg->init();
+        std::clog << "LibDAI: inference engine re-initialized" << std::endl;
+
+        delete em;
+        em = nullptr;
+        delete evi;
+        evi = nullptr;
+
         activated = false;
     }
 
-    void runBP() {
-        std::clog << "LibDAI: BP started" << std::endl;
+    void infer() {
+        std::clog << "LibDAI: Inference started" << std::endl;
         auto startTime = std::chrono::steady_clock::now();
-        bp->init();
-        auto initTime = std::chrono::steady_clock::now();
-        std::clog << "LibDAI: BP initialized in "
-            << std::chrono::duration_cast<std::chrono::seconds>(initTime - startTime).count()
-            << "sec" << std::endl;
-        double yetToConvergeFraction = bp->run();
+        double yetToConvergeFraction = infalg->run();
         auto endTime = std::chrono::steady_clock::now();
-        std::clog << "LibDAI: BP finished ("
-            << "iterations: " << bp->Iterations() << ", "
-            << "converge fraction: " << yetToConvergeFraction << ", "
-            << "duration: " << std::chrono::duration_cast<std::chrono::minutes>(endTime - startTime).count() << "min" << ")"
-            << std::endl;
+        std::clog << "LibDAI: Inference finished ("
+                  << "iterations: " << infalg->Iterations() << ", "
+                  << "converge fraction: " << yetToConvergeFraction << ", "
+                  << "duration: " << std::chrono::duration_cast<std::chrono::minutes>(endTime - startTime).count() << "min" << ")"
+                  << std::endl;
         activated = true;
     }
 
@@ -86,14 +119,14 @@ public:
         if (activated) {
             std::cerr << "LibDAI: inference has been activated before, observation takes no effect" << std::endl;
         }
-        bp->clamp(varIndex, varValue ? 1 : 0);
+        infalg->clamp(varIndex, varValue ? 1 : 0);
     }
 
-    std::vector<double> queryParamFactor(int paramIndex) {
+    std::vector<double> queryPostParamFactor(int paramIndex) {
         if (!activated) {
             std::cerr << "LibDAI: inference not activated yet, returning init values." << std::endl;
         }
-        dai::TFactor<dai::Real> factor = bp->belief(fg->var(paramIndex));
+        dai::TFactor<dai::Real> factor = infalg->belief(fg->var(paramIndex));
         std::vector<double> weights;
         for (size_t i = 0; i < factor.nrStates(); ++i) {
             weights.push_back(factor.get(i));
@@ -102,56 +135,77 @@ public:
     }
 
     // Bernoulli distribution has only one parameter {P(X=1)=p, P(X=0)=1-p}
-    double queryBernoulliParam(int paramIndex) {
-        auto ans = queryParamFactor(paramIndex);
+    double queryPostBernoulliParam(int paramIndex) {
+        auto ans = queryPostParamFactor(paramIndex);
         return ans[1];
     }
 
-    void runEM(const std::string& evidenceFile, const std::string& emFile, size_t max_jobs) {
+    double getPriorBernoulliParam(int paramIndex) {
+        return infalg->fg().factor(paramIndex)[1];
+    }
+
+    void initEM(const std::string& evidenceFile, const std::string& emFile) {
+        if (activated) {
+            std::clog << "LibDAI: reset to run EM" << std::endl;
+            activated = false;
+        }
+        if (em != nullptr) {
+            std::clog << "LibDAI: reset previous EM settings" << std::endl;
+            delete em;
+            em = nullptr;
+        }
         // ref: see example from https://staff.fnwi.uva.nl/j.m.mooij/libDAI/doc/example_sprinkler_em_8cpp-example.html
         auto startTime = std::chrono::steady_clock::now();
         // 1. construct evidence file
         std::clog << "LibDAI: loading evidence from " << evidenceFile << std::endl;
-        dai::Evidence e;
         std::ifstream iEvis(evidenceFile);
-        e.addEvidenceTabFile(iEvis, *fg);
+        evi = new dai::Evidence();
+        evi->addEvidenceTabFile(iEvis, *fg);
         auto tabLoadTime = std::chrono::steady_clock::now();
-        std::clog << "LibDAI: evidence of " << e.nrSamples() << " samples loaded in "
+        std::clog << "LibDAI: evidence of " << evi->nrSamples() << " samples loaded in "
                   << std::chrono::duration_cast<std::chrono::seconds>(tabLoadTime - startTime).count()
                   << "sec" << std::endl;
-        // 2. init inference algo
-        std::clog << "LibDAI: BP started initialization ("
-                  << "maxiter: " << opts.getStringAs<size_t>("maxiter") << ", "
-                  << "maxtime: " << opts.getStringAs<dai::Real>("maxtime") << "sec" << ", "
-                  << "tol: " << opts.getStringAs<dai::Real>("tol") << ")"
-                  << std::endl;
-        bp->init();
-        auto bpInitTime = std::chrono::steady_clock::now();
-        std::clog << "LibDAI: BP initialized in "
-                  << std::chrono::duration_cast<std::chrono::seconds>(bpInitTime - tabLoadTime).count()
-                  << "sec" << std::endl;
-        // 3. load EM spec
+
+        // 2. load EM spec
         std::clog << "LibDAI: EM started initialization"<< std::endl;
         std::ifstream iEMs(emFile);
-        dai::MultiEMAlg em(e, *bp, iEMs);
-        em.setMaxJobs(max_jobs);
+        em = new dai::MultiEMAlg(*evi, *infalg, iEMs);
         auto emInitTime = std::chrono::steady_clock::now();
         std::clog << "LibDAI: EM initialized in "
-                  << std::chrono::duration_cast<std::chrono::seconds>(emInitTime - bpInitTime).count()
+                  << std::chrono::duration_cast<std::chrono::seconds>(emInitTime - tabLoadTime).count()
                   << "sec" << std::endl;
-        // 4. iterating EM until convergence
-        auto iterStartTime = emInitTime;
-        while (!em.hasSatisfiedTermConditions()) {
-            dai::Real I = em.iterate();
-            auto iterEndTime = std::chrono::steady_clock::now();
-            std::clog << "Iteration " << em.Iterations()
-                      << " likelihood: " << I
-                      << " time: " << std::chrono::duration_cast<std::chrono::seconds>(iterEndTime - iterStartTime).count() << "sec"
-                      << std::endl;
-            iterStartTime = iterEndTime;
+    }
+
+    bool isEMconverged() {
+        if (em == nullptr) {
+            std::clog << "LibDAI: EM has not been initialized before check" << std::endl;
+            return false;
         }
-        // 5. update learned factor graph
+        return em->hasSatisfiedTermConditions();
+    }
+
+    void iterateEM(size_t max_jobs) {
+        if (em == nullptr) {
+            std::clog << "LibDAI: EM has not been initialized before iterate, do nothing" << std::endl;
+            return;
+        }
+        auto iterStartTime = std::chrono::steady_clock::now();
+        em->setMaxJobs(max_jobs);
+        dai::Real I = em->iterate();
         activated = true;
+        auto iterEndTime = std::chrono::steady_clock::now();
+        std::clog << "Iteration " << em->Iterations()
+                  << " likelihood: " << I
+                  << " time: " << std::chrono::duration_cast<std::chrono::seconds>(iterEndTime - iterStartTime).count() << "sec"
+                  << std::endl;
+    }
+
+    void runEM(const std::string& evidenceFile, const std::string& emFile, size_t max_jobs) {
+        initEM(evidenceFile, emFile);
+        // iterating EM until convergence
+        while (!isEMconverged()) {
+            iterateEM(max_jobs);
+        }
     }
 };
 

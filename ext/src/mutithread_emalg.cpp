@@ -77,7 +77,7 @@ namespace dai {
             clamped->run();
 
             Real single_likelihood = clamped->logZ() - logZ;
-            std::clog << std::string("LibDAI: Expectation task ") + std::to_string(id) + " finished\n";
+            std::clog << std::string("LibDAI: Expectation task ") + std::to_string(id) + " finished, likelihood " + std::to_string(single_likelihood) + "\n";
 
             return single_likelihood;
         };

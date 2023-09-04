@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
     }
     char *fgFileName = argv[1];
     clog << "Loading factor graph " << fgFileName << endl;
-    LibDAISWIGFactorGraph fg(fgFileName, 10000000, 10800, 1e-6);
+    LibDAISWIGFactorGraph fg(fgFileName, 10000000, 10800, 1e-6, "BP");
     clog << "Factor graph loaded." << endl;
 
     char *oFileName = argv[2];
@@ -69,17 +69,17 @@ int main(int argc, char *argv[]) {
 //    clog << endl;
 
     clog << "Prior: " << endl;
-    fg.runBP();
+    fg.infer();
     dumpQueries(fg, qVars, pVars);
     clog << endl;
 
     if(!oVars.empty()) {
         clog << "Posterior: " << endl;
-        fg.resetBP();
+        fg.reset();
         for (int i = 0; i < oVars.size(); ++i) {
             fg.observeBernoulli(oVars[i], oVals[i]);
         }
-        fg.runBP();
+        fg.infer();
         dumpQueries(fg, qVars, pVars);
     }
     return 0;
@@ -88,13 +88,13 @@ int main(int argc, char *argv[]) {
 void dumpQueries(LibDAISWIGFactorGraph &fg, const vector<int> &qVars, const vector<int> &pVars) {
     clog << "Q:";
     for (int i = 0; i < qVars.size(); ++i) {
-        clog << "\t<" << qVars[i] << "," << fg.queryBernoulliParam(qVars[i]) << ">";
+        clog << "\t<" << qVars[i] << "," << fg.queryPostBernoulliParam(qVars[i]) << ">";
     }
     clog << endl;
     clog << "P:";
     for (int i = 0; i < pVars.size(); ++i) {
         clog << "\t<" << pVars[i];
-        vector<double> weights = fg.queryParamFactor(pVars[i]);
+        vector<double> weights = fg.queryPostParamFactor(pVars[i]);
         for (int j = 0; j < weights.size(); ++j) {
             clog << "," << weights[j];
         }
