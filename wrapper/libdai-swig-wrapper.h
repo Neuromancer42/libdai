@@ -207,6 +207,10 @@ public:
             iterateEM(max_jobs);
         }
     }
+
+    void dumpVars() {
+        std::clog << infalg->beliefs() << std::endl;
+    }
 };
 
 #endif //LIBDAI_LIBDAI_SWIG_WRAPPER_H

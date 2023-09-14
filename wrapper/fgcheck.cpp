@@ -57,6 +57,35 @@ int main(int argc, char * argv[]) {
     }
     clog << endl;
 
+    map<size_t, size_t> depth;
+    size_t max_depth = 0;
+    {
+        for (auto v : all_vars) {
+            depth[v] = 0;
+        }
+        deque<size_t> worklist{all_vars.begin(), all_vars.end()};
+        while (!worklist.empty()) {
+            size_t cur_v = worklist.front();
+            worklist.pop_front();
+            auto prec_range = prec.equal_range(cur_v);
+
+
+            size_t cur_depth = depth[cur_v];
+            if (cur_depth > max_depth) {
+                max_depth = cur_depth;
+            }
+
+            for (auto it = prec_range.first; it != prec_range.second; ++it) {
+                auto body = it->second;
+                if (depth[body] < cur_depth + 1) {
+                    depth[body] = cur_depth + 1;
+                    worklist.push_back(body);
+                }
+            }
+        }
+    }
+    clog << "Max depth: " << max_depth << endl;
+
     ifstream tab_ifs;
     tab_ifs.open(argv[2]);
     string line;

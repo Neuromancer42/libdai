@@ -17,7 +17,7 @@ int main(int argc, char *argv[]) {
     }
     char *fgFileName = argv[1];
     clog << "Loading factor graph " << fgFileName << endl;
-    LibDAISWIGFactorGraph fg(fgFileName, 10000000, 10800, 1e-6, "MF");
+    LibDAISWIGFactorGraph fg(fgFileName, 10000000, 10800, 1e-6, "BP");
     clog << "Factor graph loaded." << endl;
 
     char *eFileName = argv[2];
@@ -70,6 +70,7 @@ int main(int argc, char *argv[]) {
         dumpParams(fg, pVars);
     }
     dumpQueries(fg, qVars);
+    fg.dumpVars();
     return 0;
 }
 
