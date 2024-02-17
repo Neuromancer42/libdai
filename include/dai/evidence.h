@@ -32,7 +32,10 @@ class Evidence {
         /// Stores joint state of a set of variables
         typedef std::map<Var, size_t> Observation;
 
-    private:
+    /// Read in tabular data from a stream and add the read samples to \c *this.
+    void addEvidenceTabFile( std::istream& is, std::map<std::string, Var> &varMap );
+
+private:
         /// Each sample is an observed joint state of some variables
         std::vector<Observation> _samples;
 
@@ -71,9 +74,6 @@ class Evidence {
         const_iterator end() const { return _samples.end(); }
     //@}
 
-    private:
-        /// Read in tabular data from a stream and add the read samples to \c *this.
-        void addEvidenceTabFile( std::istream& is, std::map<std::string, Var> &varMap );
 };
 
 

@@ -36,7 +36,8 @@ namespace dai {
 
         /// Convergence tolerance
         Real _log_z_tol;
-
+        
+        /// Number of parallel jobs
         size_t _max_jobs;
 
     public:
@@ -48,7 +49,7 @@ namespace dai {
         static const std::string LOG_Z_TOL_KEY;
         /// Default likelihood tolerance
         static const Real LOG_Z_TOL_DEFAULT;
-        /// Maximum number of threads for paralle updating
+        /// Maximum number of threads for parallel updating
         static const size_t MAX_THREADS;
 
         /// Construct an EMAlg from several objects

@@ -247,7 +247,7 @@ void BP::calcNewMessage( size_t i, size_t _I ) {
             marg.normalize();
         }
     }
-
+//    std::cerr << "newMessage(" << i << "<-" << I << ")=" << marg << endl;
     // Store result
     if( props.logdomain )
         newMessage(i,_I) = marg.log();

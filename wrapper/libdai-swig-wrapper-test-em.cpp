@@ -12,12 +12,13 @@ void dumpParams(LibDAISWIGFactorGraph &fg, const vector<int> &pVars);
 
 int main(int argc, char *argv[]) {
     if (argc != 6) {
-        cerr << "Usage: ./wrapper-test-em <factor-graph-file> <evidence-file> <param-file> <query-file> <param-file>" << endl;
+        cerr << "Usage: ./wrapper-test-em <factor-graph-file> <evidence-file> <em-file> <query-file> <param-file>" << endl;
         return 1;
     }
+    LibDAISWIGFactorGraph::verbose = 10;
     char *fgFileName = argv[1];
     clog << "Loading factor graph " << fgFileName << endl;
-    LibDAISWIGFactorGraph fg(fgFileName, 10000000, 10800, 1e-6, "BP");
+    LibDAISWIGFactorGraph fg(fgFileName, 10, 10800, 1e-6, "BP");
     clog << "Factor graph loaded." << endl;
 
     char *eFileName = argv[2];
@@ -57,16 +58,16 @@ int main(int argc, char *argv[]) {
 //    dumpQueries(fg, qVars, pVars);
 //    clog << endl;
 
-    dumpParams(fg, pVars);
-    clog << "Prior: " << endl;
-    fg.infer();
-    dumpQueries(fg, qVars);
-    clog << endl;
+//    dumpParams(fg, pVars);
+//    clog << "Prior: " << endl;
+//    fg.infer();
+//    dumpQueries(fg, qVars);
+//    clog << endl;
 
     clog << "Posterior: " << endl;
     fg.initEM(eFileName, emspecFileName);
     while (!fg.isEMconverged()) {
-        fg.iterateEM(6);
+        fg.iterateEM(1);
         dumpParams(fg, pVars);
     }
     dumpQueries(fg, qVars);

@@ -64,19 +64,19 @@ double toc() {
 typedef boost::mt19937 _rnd_gen_type;
 
 /// Global random number generator
-_rnd_gen_type _rnd_gen(42U);
+thread_local _rnd_gen_type _rnd_gen(42U);
 
 /// Uniform distribution with values between 0 and 1 (0 inclusive, 1 exclusive).
-boost::uniform_real<Real> _uni_dist(0,1);
+thread_local boost::uniform_real<Real> _uni_dist(0,1);
 
 /// Normal distribution with mean 0 and standard deviation 1.
-boost::normal_distribution<Real> _normal_dist;
+thread_local boost::normal_distribution<Real> _normal_dist;
 
 /// Global uniform random random number
-boost::variate_generator<_rnd_gen_type&, boost::uniform_real<Real> > _uni_rnd(_rnd_gen, _uni_dist);
+thread_local boost::variate_generator<_rnd_gen_type&, boost::uniform_real<Real> > _uni_rnd(_rnd_gen, _uni_dist);
 
 /// Global random number generator with standard normal distribution
-boost::variate_generator<_rnd_gen_type&, boost::normal_distribution<Real> > _normal_rnd(_rnd_gen, _normal_dist);
+thread_local boost::variate_generator<_rnd_gen_type&, boost::normal_distribution<Real> > _normal_rnd(_rnd_gen, _normal_dist);
 
 
 void rnd_seed( size_t seed ) {
