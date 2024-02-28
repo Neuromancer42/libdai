@@ -41,7 +41,7 @@ namespace dai {
              *  - SEQRND sequential updates using a random sequence
              *  - SEQMAX maximum-residual updates [\ref EMK06]
              */
-            DAI_ENUM(UpdateType,SEQFIX,SEQRND,SEQMAX,PARALL);
+            DAI_ENUM(UpdateType/*,SEQFIX,SEQRND,SEQMAX*/,PARALL);
 
             /// Enumeration of inference variants
             /** There are two inference variants:
@@ -79,9 +79,17 @@ namespace dai {
         bool recordSentMessages;
         
     public:
-        CausalBP() : DAIAlg<CausalFactorGraph>(),  _edges(), _edge2lut(), _lut(), _maxdiff(0.0), _iters(0U), _sentMessages(), _oldBeliefsV()/*, _oldBeliefsF()*/, _updateSeq(), props(), recordSentMessages(false) {}
+        CausalBP() : DAIAlg<CausalFactorGraph>(),  
+                _edges(), _edge2lut(), _lut(), _maxdiff(0.0), _iters(0U),
+                _sentMessages(), _oldBeliefsV()/*, _oldBeliefsF()*/, _updateSeq(), props(), recordSentMessages(false),
+//                factorMsgs(nrFactors(), {AccumulateMsg{props.logdomain}, AccumulateMsg{props.logdomain}}),
+                varMsgs(nrVars(), {AccumulateMsg{props.logdomain}, AccumulateMsg{props.logdomain}}) {}
         
-        CausalBP(const CausalFactorGraph &x, const PropertySet &opts ) : DAIAlg<CausalFactorGraph>(x), _edges(), _edge2lut(), _lut(), _maxdiff(0.0), _iters(0U), _sentMessages(), _oldBeliefsV()/*, _oldBeliefsF()*/, _updateSeq(), props(), recordSentMessages(false) {
+        CausalBP(const CausalFactorGraph &x, const PropertySet &opts ) : DAIAlg<CausalFactorGraph>(x),
+                _edges(), _edge2lut(), _lut(), _maxdiff(0.0), _iters(0U),
+                _sentMessages(), _oldBeliefsV()/*, _oldBeliefsF()*/, _updateSeq(), props(), recordSentMessages(false),
+//                factorMsgs(nrFactors(), {AccumulateMsg{props.logdomain}, AccumulateMsg{props.logdomain}}),
+                varMsgs(nrVars(), {AccumulateMsg{props.logdomain}, AccumulateMsg{props.logdomain}}) {
             setProperties( opts );
             construct();
         }
@@ -147,7 +155,51 @@ namespace dai {
         virtual void construct();
         
     private:
-        Real calcFactorDistKL(size_t I);
+//        Real calcFactorDistKL(size_t I);
+        
+        struct AccumulateMsg {
+            Real msg;
+            std::set<size_t> zeros{};
+            explicit AccumulateMsg(bool logdomain) {
+                msg = logdomain ? 0.0 : 1.0;
+            }
+            void reset(size_t id, Real origMsg, bool logdomain) {
+                if (zeros.erase(id) == 0) {
+                    if (logdomain)
+                        msg -= origMsg;
+                    else
+                        msg /= origMsg;
+                }
+            }
+            void reset(bool logdomain) {
+                msg = logdomain ? 0.0 : 1.0;
+                zeros.clear();
+            }
+            void accumulate(bool logdomain, size_t id, Real m) {
+                if (logdomain) {
+                    if (isinf(m))
+                        zeros.insert(id);
+                    else
+                        msg += m;
+                } else {
+                    if (m == 0)
+                        zeros.insert(id);
+                    else
+                        msg *= m;
+                }
+            }
+            Real residual(bool logdomain, size_t i, Real m) const {
+                if (zeros.size() > 1)
+                    return logdomain ? dai::log((Real) 0) : 0;
+                if (zeros.size() == 1) {
+                    if (zeros.find(i) != zeros.end())
+                        return msg;
+                    return logdomain ? dai::log((Real) 0) : 0;
+                }
+                return logdomain ? (msg - m) : (msg / m);
+            }
+        };
+        std::vector<std::array<AccumulateMsg, 2>> /*factorMsg,*/ varMsgs;
     };
 }
 #endif //LIBDAI_CAUSAL_BP_H

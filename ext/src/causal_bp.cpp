@@ -30,27 +30,28 @@ static inline void CausalNormalize(Real &x, Real &y, bool logdomain = false) {
 }
 
 static inline void CausalScale(Real &x, Real &y) {
-    if (dai::abs(x) < dai::abs(y)) {
-        if (isinf(y)) {
-            x = 0;
-            y = y < 0 ? -1 : 1;
+    Real m = std::max(dai::abs(x), dai::abs(y));
+    if (m != 0) {
+        if (isinf(m)) {
+            x = isinf(x) ? ((x < 0) ? -1 : 1) : 0;
+            y = isinf(y) ? ((y < 0) ? -1 : 1) : 0;
         } else {
-            x /= dai::abs(y);
-            y /= dai::abs(y);
+            x /= m;
+            y /= m;
         }
-    } else if (dai::abs(y) < dai::abs(x)){
-        if (isinf(x)) {
-            x = x < 0 ? -1 : 1;
-            y = 0;
-        } else {
-            x /= dai::abs(x);
-            y /= dai::abs(x);
+    }
+}
+
+static inline void CausalScaleLog(Real &x, Real &y) {
+    Real m = std::max(x, y);
+    if (isinf(m)) {
+        if (m > 0) {
+            x = isinf(x) ? 0 : dai::log((Real) 0);
+            y = isinf(y) ? 0 : dai::log((Real) 1);
         }
     } else {
-        if (x != 0) {
-            x = 1;
-            y = 1;
-        }
+        x -= m;
+        y -= m;
     }
 }
 void CausalBP::setProperties(const PropertySet &opts ) {
@@ -117,15 +118,15 @@ void CausalBP::construct() {
     _edges.clear();
     _edges.reserve( nrVars() );
     _edge2lut.clear();
-    if( props.updates == Properties::UpdateType::SEQMAX )
-        _edge2lut.reserve( nrVars() );
+//    if( props.updates == Properties::UpdateType::SEQMAX )
+//        _edge2lut.reserve( nrVars() );
     for( size_t i = 0; i < nrVars(); ++i ) {
         _edges.push_back( { } );
         _edges[i].reserve( nbV(i).size() );
-        if( props.updates == Properties::UpdateType::SEQMAX ) {
-            _edge2lut.push_back( vector<LutType::iterator>() );
-            _edge2lut[i].reserve( nbV(i).size() );
-        }
+//        if( props.updates == Properties::UpdateType::SEQMAX ) {
+//            _edge2lut.push_back( vector<LutType::iterator>() );
+//            _edge2lut[i].reserve( nbV(i).size() );
+//        }
         bforeach( const Neighbor &I, nbV(i) ) {
             EdgeProp newEP;
             newEP.message = Prob( var(i).states() );
@@ -139,8 +140,8 @@ void CausalBP::construct() {
             
             newEP.residual = 0.0;
             _edges[i].push_back( newEP );
-            if( props.updates == Properties::UpdateType::SEQMAX )
-                _edge2lut[i].push_back( _lut.insert( make_pair( newEP.residual, make_pair( i, _edges[i].size() - 1 ))) );
+//            if( props.updates == Properties::UpdateType::SEQMAX )
+//                _edge2lut[i].push_back( _lut.insert( make_pair( newEP.residual, make_pair( i, _edges[i].size() - 1 ))) );
         }
     }
 
@@ -162,13 +163,18 @@ void CausalBP::construct() {
 
 
 void CausalBP::init() {
+    for (size_t i = 0; i < nrVars(); ++i) {
+        auto& vMsg = varMsgs[i];
+        vMsg[0].reset(props.logdomain);
+        vMsg[1].reset(props.logdomain);
+    }
     Real c = props.logdomain ? 0.0 : 1.0;
     for( size_t i = 0; i < nrVars(); ++i ) {
         bforeach( const Neighbor &I, nbV(i) ) {
             message( i, I.iter ).fill( c );
             newMessage( i, I.iter ).fill( c );
-            if( props.updates == Properties::UpdateType::SEQMAX )
-                updateResidual( i, I.iter, 0.0 );
+//            if( props.updates == Properties::UpdateType::SEQMAX )
+//                updateResidual( i, I.iter, 0.0 );
         }
     }
     _iters = 0;
@@ -253,33 +259,18 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                     if (j != i) {
 //                        Prob prod_j( var(j).states(), props.logdomain ? 0.0 : 1.0);
 //                        DAI_ASSERT(prod_j.size() == 2);
-                        Real prod_j0 = props.logdomain ? 0.0 : 1.0;
-                        Real prod_j1 = props.logdomain ? 0.0 : 1.0;
-                        bforeach(const Neighbor &J, nbV(j)) {
-                            if (J != I) {
-                                const Real m0 = message(j, J.iter)[0];
-                                const Real m1 = message(j, J.iter)[1];
-                                if (props.logdomain) {
-//                                    prod_j += message(j, J.iter);
-//                                    prod_j -= message(j, J.iter).sum() / 2.0;
-                                    prod_j0 += m0;
-                                    prod_j1 += m1;
-                                } else {
-//                                    prod_j *= message(j, J.iter);
-                                    prod_j0 *= m0;
-                                    prod_j1 *= m1;
-//                                    prod_j.normalize();
-                                }
-                                CausalNormalize(prod_j0, prod_j1, props.logdomain);
-                            }
-                        }
+                        auto &vMsg = varMsgs[j];
+                        auto &origMsg = message(j, j.dual);
+                        Real prod_j0 = vMsg[0].residual(props.logdomain, I, origMsg[0]);
+                        Real prod_j1 = vMsg[1].residual(props.logdomain, I, origMsg[1]);
+                        
                         if (props.logdomain) {
 //                            prod_j.takeExp();
                             prod_j0 = dai::exp(prod_j0);
                             prod_j1 = dai::exp(prod_j1);
 //                            prod_j.normalize();
-                            CausalNormalize(prod_j0, prod_j1);
                         }
+                        CausalNormalize(prod_j0, prod_j1);
 
                         constexpr Real arg0 = 0, arg1 = 1;
 //                        Real a0 = (prod_j[0] + prod_j[1]);
@@ -305,33 +296,19 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                     if (j != i) {
 //                        Prob prod_j( var(j).states(), props.logdomain ? 0.0 : 1.0);
 //                        DAI_ASSERT(prod_j.size() == 2);
-                        Real prod_j0 = props.logdomain ? 0.0 : 1.0;
-                        Real prod_j1 = props.logdomain ? 0.0 : 1.0;
-                        bforeach(const Neighbor &J, nbV(j)) {
-                            if (J != I) {
-                                const Real m0 = message(j, J.iter)[0];
-                                const Real m1 = message(j, J.iter)[1];
-                                if (props.logdomain) {
-//                                    prod_j += message(j, J.iter);
-//                                    prod_j -= message(j, J.iter).sum() / 2.0;
-                                    prod_j0 += m0;
-                                    prod_j1 += m1;
-                                } else {
-//                                    prod_j *= message(j, J.iter);
-                                    prod_j0 *= m0;
-                                    prod_j1 *= m1;
-//                                    prod_j.normalize();
-                                }
-                                CausalNormalize(prod_j0, prod_j1, props.logdomain);
-                            }
-                        }
+                        auto &vMsg = varMsgs[j];
+                        auto &origMsg = message(j, j.dual);
+                        Real prod_j0 = vMsg[0].residual(props.logdomain, I, origMsg[0]);
+                        Real prod_j1 = vMsg[1].residual(props.logdomain, I, origMsg[1]);
+                        
                         if (props.logdomain) {
 //                            prod_j.takeExp();
                             prod_j0 = dai::exp(prod_j0);
                             prod_j1 = dai::exp(prod_j1);
 //                            prod_j.normalize();
-                            CausalNormalize(prod_j0, prod_j1);
                         }
+                        CausalNormalize(prod_j0, prod_j1);
+                        
                         if (factor(I).head() == var(j)) {
                             t0 *= (prod_j1 * mask1 - prod_j0 * mask0);
                             t1 *= prod_j0 * mask0;
@@ -367,34 +344,18 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                     if (j != i) {
 //                        Prob prod_j( var(j).states(), props.logdomain ? 0.0 : 1.0 );
 //                        DAI_ASSERT(prod_j.size() == 2);
-                        Real prod_j0 = props.logdomain ? 0.0 : 1.0;
-                        Real prod_j1 = props.logdomain ? 0.0 : 1.0;
-                        bforeach(
-                        const Neighbor &J, nbV(j))
-                        if (J != I) {
-                            const Real m0 = message(j, J.iter)[0];
-                            const Real m1 = message(j, J.iter)[1];
-                            if (props.logdomain) {
-//                                prod_j += message(j, J.iter);
-//                                prod_j -= message(j, J.iter).sum() / 2.0;
-                                prod_j0 += m0;
-                                prod_j1 += m1;
-                            } else {
-//                                prod_j *= message(j, J.iter);
-                                prod_j0 *= m0;
-                                prod_j1 *= m1;
-//                                prod_j.normalize();
-                            }
-                            CausalNormalize(prod_j0, prod_j1, props.logdomain);
-                        }
+                        auto &vMsg = varMsgs[j];
+                        auto &origMsg = message(j, j.dual);
+                        Real prod_j0 = vMsg[0].residual(props.logdomain, I, origMsg[0]);
+                        Real prod_j1 = vMsg[1].residual(props.logdomain, I, origMsg[1]);
 
                         if (props.logdomain) {
 //                            prod_j.takeExp();
                             prod_j0 = dai::exp(prod_j0);
                             prod_j1 = dai::exp(prod_j1);
 //                            prod_j.normalize();
-                            CausalNormalize(prod_j0, prod_j1);
                         }
+                        CausalNormalize(prod_j0, prod_j1);
                         
                         constexpr Real arg0 = 1, arg1 = 0;
                         Real a0 = prod_j0 + prod_j1;
@@ -418,35 +379,19 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                     if (j != i) {
 //                        Prob prod_j( var(j).states(), props.logdomain ? 0.0 : 1.0 );
 //                        DAI_ASSERT(prod_j.size() == 2);
-                        Real prod_j0 = props.logdomain ? 0.0 : 1.0;
-                        Real prod_j1 = props.logdomain ? 0.0 : 1.0;
-
-                        bforeach(const Neighbor &J, nbV(j)) {
-                            if (J != I) {
-                                const Real m0 = message(j, J.iter)[0];
-                                const Real m1 = message(j, J.iter)[1];
-                                if (props.logdomain) {
-//                                    prod_j += message(j, J.iter);
-//                                    prod_j -= message(j, J.iter).sum() / 2.0;
-                                    prod_j0 += m0;
-                                    prod_j1 += m1;
-                                } else {
-//                                    prod_j *= message(j, J.iter);
-                                    prod_j0 *= m0;
-                                    prod_j1 *= m1;
-//                                    prod_j.normalize();
-                                }
-                                CausalNormalize(prod_j0, prod_j1, props.logdomain);
-                            }
-                        }
+                        auto &vMsg = varMsgs[j];
+                        auto &origMsg = message(j, j.dual);
+                        Real prod_j0 = vMsg[0].residual(props.logdomain, I, origMsg[0]);
+                        Real prod_j1 = vMsg[1].residual(props.logdomain, I, origMsg[1]);
 
                         if (props.logdomain) {
 //                            prod_j.takeExp();
                             prod_j0 = dai::exp(prod_j0);
                             prod_j1 = dai::exp(prod_j1);
 //                            prod_j.normalize();
-                            CausalNormalize(prod_j0, prod_j1);
                         }
+                        CausalNormalize(prod_j0, prod_j1);
+                        
                         if (factor(I).head() == var(j)) {
                             t0 *= prod_j0 * mask0 - prod_j1 * mask1;
                             t1 *= prod_j1 * mask1;
@@ -512,8 +457,8 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
     }
 //    std::cerr << "newMessage(" << i << "<-" << I << ")=" << marg << std::endl;
     
-    if( props.updates == Properties::UpdateType::SEQMAX )
-        updateResidual( i, _I , dist( newMessage( i, _I ), message( i, _I ), DISTLINF ) );
+//    if( props.updates == Properties::UpdateType::SEQMAX )
+//        updateResidual( i, _I , dist( newMessage( i, _I ), message( i, _I ), DISTLINF ) );
 }
 
 
@@ -527,7 +472,7 @@ Real CausalBP::run() {
     
     Real maxDiff = INFINITY;
     for( ; _iters < props.maxiter && maxDiff > props.tol && (toc() - tic) < props.maxtime; _iters++ ) {
-        if( props.updates == Properties::UpdateType::SEQMAX ) {
+        /* if( props.updates == Properties::UpdateType::SEQMAX ) {
             if( _iters == 0 ) {
                 for( size_t i = 0; i < nrVars(); ++i )
                     bforeach( const Neighbor &I, nbV(i) )
@@ -548,15 +493,31 @@ Real CausalBP::run() {
                     }
                 }
             }
-        } else if( props.updates == Properties::UpdateType::PARALL ) {
+        } else */ if( props.updates == Properties::UpdateType::PARALL ) {
             for( size_t i = 0; i < nrVars(); ++i )
                 bforeach( const Neighbor &I, nbV(i) )
                     calcNewMessage( i, I.iter );
-            
+
             for( size_t i = 0; i < nrVars(); ++i )
                 bforeach( const Neighbor &I, nbV(i) )
                     updateMessage( i, I.iter );
-        } else {
+
+            for (size_t i = 0; i < nrVars(); ++i) {
+                auto & vMsg = varMsgs[i];
+                vMsg[0].reset(props.logdomain);
+                vMsg[1].reset(props.logdomain);
+                bforeach( const Neighbor &I, nbV(i) ) {
+                    auto & m = message(i, I.iter);
+                    vMsg[0].accumulate(props.logdomain, I, m[0]);
+                    vMsg[1].accumulate(props.logdomain, I, m[1]);
+                    if (props.logdomain) {
+                        CausalScaleLog(vMsg[0].msg, vMsg[1].msg);
+                    } else {
+                        CausalScale(vMsg[0].msg, vMsg[1].msg);
+                    }
+                }
+            }
+        } /* else {
             if( props.updates == Properties::UpdateType::SEQRND )
                 // TOOD: modify randome_shuffle to support multi-thread call
                 random_shuffle( _updateSeq.begin(), _updateSeq.end(), rnd );
@@ -565,7 +526,7 @@ Real CausalBP::run() {
                 calcNewMessage( e.first, e.second );
                 updateMessage( e.first, e.second );
             }
-        }
+        } */
         
         maxDiff = -INFINITY;
         for( size_t i = 0; i < nrVars(); ++i ) {
@@ -681,12 +642,15 @@ Real CausalBP::logZ() const {
 void CausalBP::init(const VarSet &ns ) {
     for( VarSet::const_iterator n = ns.begin(); n != ns.end(); ++n ) {
         size_t ni = findVar( *n );
+        auto & vMsg = varMsgs[ni];
+        vMsg[0].reset(props.logdomain);
+        vMsg[1].reset(props.logdomain);
         bforeach( const Neighbor &I, nbV( ni ) ) {
             Real val = props.logdomain ? 0.0 : 1.0;
             message( ni, I.iter ).fill( val );
             newMessage( ni, I.iter ).fill( val );
-            if( props.updates == Properties::UpdateType::SEQMAX )
-                updateResidual( ni, I.iter, 0.0 );
+//            if( props.updates == Properties::UpdateType::SEQMAX )
+//                updateResidual( ni, I.iter, 0.0 );
         }
     }
     _iters = 0;
@@ -698,15 +662,15 @@ void CausalBP::updateMessage(size_t i, size_t _I ) {
         _sentMessages.push_back(make_pair(i,_I));
     if( props.damping == 0.0 ) {
         message(i,_I) = newMessage(i,_I);
-        if( props.updates == Properties::UpdateType::SEQMAX )
-            updateResidual( i, _I, 0.0 );
+//        if( props.updates == Properties::UpdateType::SEQMAX )
+//            updateResidual( i, _I, 0.0 );
     } else {
         if( props.logdomain )
             message(i,_I) = (message(i,_I) * props.damping) + (newMessage(i,_I) * (1.0 - props.damping));
         else
             message(i,_I) = (message(i,_I) ^ props.damping) * (newMessage(i,_I) ^ (1.0 - props.damping));
-        if( props.updates == Properties::UpdateType::SEQMAX )
-            updateResidual( i, _I, dist( newMessage(i,_I), message(i,_I), DISTLINF ) );
+//        if( props.updates == Properties::UpdateType::SEQMAX )
+//            updateResidual( i, _I, dist( newMessage(i,_I), message(i,_I), DISTLINF ) );
     }
 }
 
@@ -720,18 +684,18 @@ void CausalBP::updateResidual(size_t i, size_t _I, Real r ) {
     _edge2lut[i][_I] = _lut.insert( make_pair( r, make_pair(i, _I) ) );
 }
 
-Real CausalBP::calcFactorDistKL(size_t I) {
-    Real dist;
-    switch (factor(I).type) {
-        case CausalFactor::Singleton: {
-            break;
-        }
-        case CausalFactor::DefiniteAnd: {
-            break;
-        }
-        case CausalFactor::DefiniteOr: {
-            break;
-        }
-    } 
-    return dist;
-}
+//Real CausalBP::calcFactorDistKL(size_t I) {
+//    Real dist;
+//    switch (factor(I).type) {
+//        case CausalFactor::Singleton: {
+//            break;
+//        }
+//        case CausalFactor::DefiniteAnd: {
+//            break;
+//        }
+//        case CausalFactor::DefiniteOr: {
+//            break;
+//        }
+//    } 
+//    return dist;
+//}
