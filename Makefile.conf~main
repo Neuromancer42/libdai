@@ -5,10 +5,7 @@
 # Use of this source code is governed by a BSD-style license that can be found in the LICENSE file.
 
 
-# This template contains configurations for compiling libDAI under GNU/Linux
-# and other UNIX variants
-#
-# It has been tested with Ubuntu 8.04, Ubuntu 9.04 and Debian testing
+# This template contains configurations for compiling libDAI under Mac OS X
 #
 # To use it, simply copy this file to 'Makefile.conf' and adapt 'Makefile.conf'
 # to your local setup
@@ -16,7 +13,7 @@
 
 # OPERATING SYSTEM
 # Choose OS from {LINUX, WINDOWS, CYGWIN, MACOSX}
-OS=LINUX
+OS=MACOSX
 
 # FILE EXTENSIONS
 # Static library
@@ -26,30 +23,30 @@ OE=.o
 # Binary executable
 EE=
 # MatLab compiled MEX file
-ME=.mexa64
+ME=.mexglx
 
 # COMPILER
 # Compile using GNU C++ Compiler
 CC=g++
 # Output filename option of the compiler
-CCO=-o
+CCO=-o 
 # Flags for the C++ compiler
-CCFLAGS=-Wno-deprecated -Wall -W -Wextra -fpic -fopenmp
+CCFLAGS=-Wno-deprecated -Wall -W -Wextra -fPIC -DMACOSX -arch x86_64
 # Flags to add in debugging mode (if DEBUG=true)
-CCDEBUGFLAGS=-std=c++11 -O3 -g -DDAI_DEBUG
+CCDEBUGFLAGS=-O3 -g -DDAI_DEBUG
 # Flags to add in non-debugging mode (if DEBUG=false)
-CCNODEBUGFLAGS=-std=c++11 -O3
+CCNODEBUGFLAGS=-O3
 # Standard include directories
-CCINC=-Iinclude
+CCINC=-Iinclude -I/usr/local/include
 
 # LINKER
 # Standard libraries to include
-LIBS=-ldai -lgmpxx -lgmp
+LIBS=-ldai -lgmpxx -lgmp -arch x86_64
 # For linking with BOOST libraries
 BOOSTLIBS_PO=-lboost_program_options
 BOOSTLIBS_UTF=-lboost_unit_test_framework
 # Additional library search paths for linker
-CCLIB=-Llib
+CCLIB=-Llib -L/usr/local/lib
 
 # MATLAB
 # MatLab version 7.3 (R2006b) or newer?
@@ -69,9 +66,9 @@ MEXLIB=
 
 # SWIG PYTHON INTERFACE
 # The following should resolve to the SWIG command
-SWIG=swig3.0
+SWIG=swig
 # Location of Python header files
-INCLUDE_PYTHON=/usr/include/python2.7
+INCLUDE_PYTHON=/usr/include/python2.5
 # Location of Boost C++ library header files
 INCLUDE_BOOST=/usr/include/boost
 

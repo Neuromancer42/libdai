@@ -36,3 +36,7 @@ utils/fg2dot
 utils/fginfo
 utils/uai2fg
 wrapper
+/cmake-build*
+/build/
+/.idea
+/test-out/
