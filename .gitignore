@@ -40,3 +40,4 @@ jnilib/
 /build/
 /.idea
 /test-out/
+bp_wrapper

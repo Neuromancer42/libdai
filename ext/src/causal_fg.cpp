@@ -183,6 +183,15 @@ std::istream& dai::operator>> ( std::istream& is, CausalFactorGraph& fg ) {
                 cerr << " probability: " << setw(cerr.precision()+4) << prob << endl;
             facs.emplace_back(head, prob);
         } else {
+            Real prob = 1;
+            if (line.length() > 1) {
+                prob = static_cast<Real>(std::stold(line.substr(1)));
+                if( verbose >= 2 )
+                    cerr << " probability: " << setw(cerr.precision()+4) << prob << endl;
+            } else {
+                if( verbose >= 2 )
+                    cerr << " definite!" << endl;
+            }
             size_t body_len;    
             getline(is, line);
             while( line.front() == '#' )
@@ -210,7 +219,7 @@ std::istream& dai::operator>> ( std::istream& is, CausalFactorGraph& fg ) {
                 Var body_i{body_id, 2};
                 body.insert(body_i);
             }
-            facs.emplace_back(head, body, type == CausalFactor::DefiniteAnd);
+            facs.emplace_back(head, body, type == CausalFactor::DefiniteAnd, prob);
         }
     }
 

@@ -23,7 +23,6 @@ static unique_ptr<CausalBP> causal_bp;
 static map<int, bool> clamps;
 
 void initBP() {
-    assert(!causal_bp);
     if (is_causal)
         causal_bp.reset(new CausalBP(causal_fg, opts));
     else

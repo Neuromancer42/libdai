@@ -48,7 +48,7 @@ namespace dai {
             head_mask = Prob{std::vector<Real>{1, 1}};
         }
         
-        CausalFactor( const Var &head, const VarSet &body, bool isAnd, Real p = 1) : _head(head), _body(body), _p(1) {
+        CausalFactor( const Var &head, const VarSet &body, bool isAnd, Real p = 1) : _head(head), _body(body), _p(p) {
             if (isAnd)
                 type = DefiniteAnd;
             else

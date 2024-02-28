@@ -2,6 +2,7 @@
 #include <sstream>
 #include <map>
 #include <algorithm>
+#include <omp.h>
 #include <dai_ext/causal_bp.h>
 #include <dai/util.h>
 #include <dai/properties.h>
@@ -44,7 +45,7 @@ static inline void CausalScaleLog(Real &x, Real &y) {
     if (isinf(m)) {
         if (m > 0) {
             x = isinf(x) ? 0 : dai::log((Real) 0);
-            y = isinf(y) ? 0 : dai::log((Real) 1);
+            y = isinf(y) ? 0 : dai::log((Real) 0);
         }
     } else {
         x -= m;
@@ -249,8 +250,11 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                 mask0 = factor(I).head_mask[0];
                 mask1 = factor(I).head_mask[1];
             }
+            
+            constexpr Real arg0 = 0, arg1 = 1;
+            Real pAnd = factor(I).prob();
             if (factor(I).head() == var(i)) {
-                Real t0 = 1, t1 = 1, e1 = 0;
+                Real t0 = 1, t1 = arg0*(1-pAnd)+arg1*pAnd, e1 = 0;
 
                 bforeach(const Neighbor &j, nbF(I)) {
                     if (j != i) {
@@ -269,7 +273,6 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                         }
                         CausalNormalize(prod_j0, prod_j1);
 
-                        constexpr Real arg0 = 0, arg1 = 1;
 //                        Real a0 = (prod_j[0] + prod_j[1]);
                         Real a0 = prod_j0 + prod_j1;
 //                        Real a1 = (arg0 * prod_j[0] + arg1 * prod_j[1]);
@@ -288,7 +291,7 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                 marg0 = (e1 * t0 + (t0 - t1)) * mask0;
                 marg1 = t1 * mask1;
             } else {
-                Real t0 = 1, t1 = 1;
+                Real t0 = arg0*(1-pAnd)+arg1*pAnd, t1 = 1;
                 bforeach(const Neighbor &j, nbF(I)) {
                     if (j != i) {
 //                        Prob prod_j( var(j).states(), props.logdomain ? 0.0 : 1.0);
@@ -310,7 +313,6 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                             t0 *= (prod_j1 * mask1 - prod_j0 * mask0);
                             t1 *= prod_j0 * mask0;
                         } else {
-                            constexpr Real arg0 = 0, arg1 = 1;
                             t0 *= (arg0 * prod_j0 + arg1 * prod_j1);
                             t1 *= prod_j0 + prod_j1;
                         }
@@ -335,8 +337,11 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                 mask0 = factor(I).head_mask[0];
                 mask1 = factor(I).head_mask[1];
             }
+
+            constexpr Real arg0 = 1, arg1 = 0;
+            Real pOr = factor(I).prob();
             if (factor(I).head() == var(i)) {
-                Real t0 = 1, t1 = 1, e1 = 0;
+                Real t0 = 1, t1 = arg0*pOr+arg1*(1-pOr), e1 = 0;
                 bforeach(const Neighbor &j, nbF(I)) {
                     if (j != i) {
 //                        Prob prod_j( var(j).states(), props.logdomain ? 0.0 : 1.0 );
@@ -354,7 +359,6 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                         }
                         CausalNormalize(prod_j0, prod_j1);
                         
-                        constexpr Real arg0 = 1, arg1 = 0;
                         Real a0 = prod_j0 + prod_j1;
                         Real a1 = arg0 * prod_j0 + arg1 * prod_j1;
                         Real delta = (1 - arg0) * prod_j0 + (1 - arg1) * prod_j1;
@@ -371,7 +375,7 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                 marg0 = t1 * mask0;
                 marg1 = (e1 * t0 + (t0 - t1)) * mask1;
             } else {
-                Real t0 = 1, t1 = 1;
+                Real t0 = arg0*pOr+(arg1*(1-pOr)), t1 = 1;
                 bforeach(const Neighbor &j, nbF(I)) {
                     if (j != i) {
 //                        Prob prod_j( var(j).states(), props.logdomain ? 0.0 : 1.0 );
@@ -393,7 +397,6 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                             t0 *= prod_j0 * mask0 - prod_j1 * mask1;
                             t1 *= prod_j1 * mask1;
                         } else {
-                            constexpr Real arg0 = 1, arg1 = 0;
                             t0 *= arg0 * prod_j0 + arg1 * prod_j1;
                             t1 *= prod_j0 + prod_j1;
                         }
@@ -464,11 +467,20 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
 double CausalBP::run(double tolerance, size_t minIters, size_t maxIters, size_t histLength) {
     assert(0 < tolerance);
     assert(0 < histLength && histLength < minIters && minIters < maxIters);
+    
+    int thread_num = 1;
+    #pragma omp parallel
+    {
+        #pragma omp single
+        thread_num = omp_get_num_threads();
+    }
     clog << __LOGSTR__ << "Starting " << identify()
                        << "...  tolerance: " << tolerance
                        << ". minIters: " << minIters
                        << ". maxIters: " << maxIters
-                       << ". histLength: " << histLength << "." << endl;
+                       << ". histLength: " << histLength 
+                       << ". threads: " << thread_num
+                       << "." << endl;
 
     double tic = toc();
 
