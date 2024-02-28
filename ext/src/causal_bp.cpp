@@ -1,9 +1,6 @@
-#include <dai/dai_config.h>
-
 #include <iostream>
 #include <sstream>
 #include <map>
-#include <set>
 #include <algorithm>
 #include <dai_ext/causal_bp.h>
 #include <dai/util.h>
@@ -117,11 +114,11 @@ string CausalBP::printProperties() const {
 void CausalBP::construct() {
     _edges.clear();
     _edges.reserve( nrVars() );
-    _edge2lut.clear();
+//    _edge2lut.clear();
 //    if( props.updates == Properties::UpdateType::SEQMAX )
 //        _edge2lut.reserve( nrVars() );
     for( size_t i = 0; i < nrVars(); ++i ) {
-        _edges.push_back( { } );
+        _edges.emplace_back();
         _edges[i].reserve( nbV(i).size() );
 //        if( props.updates == Properties::UpdateType::SEQMAX ) {
 //            _edge2lut.push_back( vector<LutType::iterator>() );
@@ -148,17 +145,17 @@ void CausalBP::construct() {
     _oldBeliefsV.clear();
     _oldBeliefsV.reserve( nrVars() );
     for( size_t i = 0; i < nrVars(); ++i )
-        _oldBeliefsV.push_back( Factor( var(i) ) );
+        _oldBeliefsV.emplace_back( var(i) );
 //    _oldBeliefsF.clear();
 //    _oldBeliefsF.reserve( nrFactors() );
 //    for( size_t I = 0; I < nrFactors(); ++I )
 //        _oldBeliefsF.push_back( Factor( factor(I).vars() ) );
     
-    _updateSeq.clear();
-    _updateSeq.reserve( nrEdges() );
-    for( size_t I = 0; I < nrFactors(); I++ )
-        bforeach( const Neighbor &i, nbF(I) )
-            _updateSeq.push_back( Edge( i, i.dual ) );
+//    _updateSeq.clear();
+//    _updateSeq.reserve( nrEdges() );
+//    for( size_t I = 0; I < nrFactors(); I++ )
+//        bforeach( const Neighbor &i, nbF(I) )
+//            _updateSeq.push_back( Edge( i, i.dual ) );
 }
 
 
@@ -181,13 +178,13 @@ void CausalBP::init() {
 }
 
 
-void CausalBP::findMaxResidual( size_t &i, size_t &_I ) {
-    DAI_ASSERT( !_lut.empty() );
-    LutType::const_iterator largestEl = _lut.end();
-    --largestEl;
-    i  = largestEl->second.first;
-    _I = largestEl->second.second;
-}
+//void CausalBP::findMaxResidual( size_t &i, size_t &_I ) {
+//    DAI_ASSERT( !_lut.empty() );
+//    LutType::const_iterator largestEl = _lut.end();
+//    --largestEl;
+//    i  = largestEl->second.first;
+//    _I = largestEl->second.second;
+//}
 
 //Prob CausalBP::calcIncomingMessageProduct(size_t I, bool without_i, size_t i ) const {
 //    Factor Fprod( factor(I) );
@@ -462,6 +459,235 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
 }
 
 
+// BP::run does not check for NANs for performance reasons
+// Somehow NaNs do not often occur in BP...
+double CausalBP::run(double tolerance, size_t minIters, size_t maxIters, size_t histLength) {
+    assert(0 < tolerance);
+    assert(0 < histLength && histLength < minIters && minIters < maxIters);
+    clog << __LOGSTR__ << "Starting " << identify()
+                       << "...  tolerance: " << tolerance
+                       << ". minIters: " << minIters
+                       << ". maxIters: " << maxIters
+                       << ". histLength: " << histLength << "." << endl;
+
+    double tic = toc();
+
+    size_t numIters = 0;
+    Real maxDiff = INFINITY;
+    double yetToConvergeFraction = 1.0;
+    double nodeFracTolerance = 0.0;
+    vector<queue<double>> beliefHist(nrVars());
+
+    enum class RunReturnReason { ALL_CONVERGED, BIG_FRAC_CONVERGED, DIVERGED };
+    RunReturnReason returnReason = RunReturnReason::DIVERGED;
+
+    for (; true; numIters++, _iters++) {
+        if (numIters >= minIters) {
+            nodeFracTolerance = static_cast<double>(numIters - minIters) / (maxIters - minIters);
+        }
+
+        if (maxDiff <= tolerance) {
+            returnReason = RunReturnReason::ALL_CONVERGED;
+            break;
+        } else if (numIters > minIters && yetToConvergeFraction < nodeFracTolerance) {
+            returnReason = RunReturnReason::BIG_FRAC_CONVERGED;
+            break;
+        } else if (numIters > maxIters) {
+            returnReason = RunReturnReason::DIVERGED;
+            break;
+        } else if ((toc() - tic) > props.maxtime) {
+            returnReason = RunReturnReason::DIVERGED;
+            break;
+        }
+
+        /* if( props.updates == Properties::UpdateType::SEQMAX ) {
+            if( _iters == 0 ) {
+                // do the first pass
+                for( size_t i = 0; i < nrVars(); ++i )
+                  bforeach( const Neighbor &I, nbV(i) )
+                      calcNewMessage( i, I.iter );
+            }
+            // Maximum-Residual BP [\ref EMK06]
+            for( size_t t = 0; t < _updateSeq.size(); ++t ) {
+                // update the message with the largest residual
+                size_t i, _I;
+                findMaxResidual( i, _I );
+                updateMessage( i, _I );
+
+                // I->i has been updated, which means that residuals for all
+                // J->j with J in nb[i]\I and j in nb[J]\i have to be updated
+                bforeach( const Neighbor &J, nbV(i) ) {
+                    if( J.iter != _I ) {
+                        bforeach( const Neighbor &j, nbF(J) ) {
+                            size_t _J = j.dual;
+                            if( j != i )
+                                calcNewMessage( j, _J );
+                        }
+                    }
+                }
+            }
+        } else */if( props.updates == Properties::UpdateType::PARALL ) {
+            // Parallel updates
+            #pragma omp parallel for
+            for( size_t i = 0; i < nrVars(); ++i )
+                bforeach( const Neighbor &I, nbV(i) )
+                    calcNewMessage( i, I.iter );
+
+            #pragma omp parallel for
+            for( size_t i = 0; i < nrVars(); ++i )
+                bforeach( const Neighbor &I, nbV(i) )
+                    updateMessage( i, I.iter );
+
+            #pragma omp parallel for
+            for (size_t i = 0; i < nrVars(); ++i) {
+                auto & vMsg = varMsgs[i];
+                vMsg[0].reset(props.logdomain);
+                vMsg[1].reset(props.logdomain);
+                bforeach( const Neighbor &I, nbV(i) ) {
+                    auto & m = message(i, I.iter);
+                    vMsg[0].accumulate(props.logdomain, I, m[0]);
+                    vMsg[1].accumulate(props.logdomain, I, m[1]);
+                    if (props.logdomain) {
+                        CausalScaleLog(vMsg[0].msg, vMsg[1].msg);
+                    } else {
+                        CausalScale(vMsg[0].msg, vMsg[1].msg);
+                    }
+                }
+            }
+        }/* else if (props.updates == Properties::UpdateType::SEQRNDPAR) {
+            // Sequential updates
+            random_shuffle(_updateSeq.begin(), _updateSeq.end(), rnd);
+
+            #pragma omp parallel for
+            for (auto it = _updateSeq.begin(); it < _updateSeq.end(); it++) {
+                const Edge& e = *it;
+                calcNewMessage( e.first, e.second );
+                updateMessage( e.first, e.second );
+            }
+        } else {
+            // Sequential updates
+            if( props.updates == Properties::UpdateType::SEQRND )
+                random_shuffle( _updateSeq.begin(), _updateSeq.end(), rnd );
+
+            bforeach( const Edge &e, _updateSeq ) {
+                calcNewMessage( e.first, e.second );
+                updateMessage( e.first, e.second );
+            }
+        }*/
+
+        // calculate new beliefs and compare with old ones
+        maxDiff = -INFINITY;
+        map<int, size_t> diffHistogram;
+        const int minBucketIndex = -1;
+        int maxBucketIndex = 0;
+        size_t nonConvergedElems = 0;
+
+        for( size_t i = 0; i < nrVars(); ++i ) {
+            Factor b( beliefV(i) );
+            Real iDist = dist( b, _oldBeliefsV[i], DISTLINF );
+            maxDiff = std::max( maxDiff, iDist );
+            if (iDist > tolerance) {
+                nonConvergedElems++;
+            }
+
+            if (iDist == 0) {
+                diffHistogram[minBucketIndex]++;
+            } else {
+                int bucketIndex = std::max(static_cast<int>(ceil(log2(iDist) - log2(props.tol))), minBucketIndex);
+                diffHistogram[bucketIndex]++;
+                maxBucketIndex = std::max(maxBucketIndex, bucketIndex);
+            }
+            _oldBeliefsV[i] = b;
+
+            auto newBelief = beliefV(i).get(1);
+            auto newBeliefType = fpclassify(newBelief);
+            if (newBeliefType == FP_NORMAL || newBeliefType == FP_SUBNORMAL || newBeliefType == FP_ZERO) {
+                beliefHist[i].push(newBelief);
+            }
+            if (beliefHist[i].size() > histLength) {
+                beliefHist[i].pop();
+            }
+        }
+//        for( size_t I = 0; I < nrFactors(); ++I ) {
+//            Factor b( beliefF(I) );
+//            Real iDist = dist( b, _oldBeliefsF[I], DISTLINF );
+//            maxDiff = std::max( maxDiff, iDist );
+//            if (iDist > tolerance) {
+//                nonConvergedElems++;
+//            }
+//
+//            if (iDist == 0) {
+//                diffHistogram[minBucketIndex]++;
+//            } else {
+//                int bucketIndex = std::max(static_cast<int>(ceil(log2(iDist) - log2(props.tol))), minBucketIndex);
+//                diffHistogram[bucketIndex]++;
+//                maxBucketIndex = std::max(maxBucketIndex, bucketIndex);
+//            }
+//            _oldBeliefsF[I] = b;
+//        }
+
+        yetToConvergeFraction = static_cast<double>(nonConvergedElems) / (nrVars()/* + nrFactors()*/);
+
+        clog << __LOGSTR__ << name() << "::run():  maxdiff: " << maxDiff
+                                     << ". numIters: " << numIters
+                                     << ". Time elapsed: " << toc() - tic << " seconds. "
+                                     << "yetToConvergeFraction: " << yetToConvergeFraction << "." << endl;
+        clog << __LOGSTR__ << "diffHistogram: ";
+        for (int i = minBucketIndex; i <= maxBucketIndex; i++) {
+            if (diffHistogram[i] > 0) {
+                clog << "(" << i << ": " << diffHistogram[i] << ")";
+                if (i < maxBucketIndex) {
+                    clog << " ";
+                }
+            }
+        }
+        clog << endl;
+    }
+
+    if( maxDiff > _maxdiff )
+        _maxdiff = maxDiff;
+
+    switch (returnReason) {
+    case RunReturnReason::ALL_CONVERGED:
+        _lowPassBeliefs = vector<Real>(nrVars());
+        for (size_t i = 0; i < nrVars(); i++) {
+            _lowPassBeliefs[i] = beliefV(i).get(1);
+        }
+        break;
+    case RunReturnReason::BIG_FRAC_CONVERGED:
+    case RunReturnReason::DIVERGED:
+        _lowPassBeliefs = vector<Real>(nrVars());
+        for (size_t i = 0; i < nrVars(); i++) {
+            assert(beliefHist[i].size() <= histLength);
+            size_t denom = beliefHist[i].size();
+            while (!beliefHist[i].empty()) {
+                _lowPassBeliefs[i] += beliefHist[i].front();
+                beliefHist[i].pop();
+            }
+            if (denom > 0) { _lowPassBeliefs[i] /= denom; }
+        }
+        break;
+    }
+
+    switch (returnReason) {
+    case RunReturnReason::ALL_CONVERGED:
+        clog << __LOGSTR__ << name() << "::run:  converged in " << numIters << " passes and "
+                           << toc() - tic << " seconds. Final maxdiff: " << maxDiff << endl;
+        break;
+    case RunReturnReason::BIG_FRAC_CONVERGED:
+        clog << __LOGSTR__ << name() << "::run:  Sufficiently big fraction " << yetToConvergeFraction
+                                     << " of variables appeared to converge in " << numIters << " passes and "
+                                     << toc() - tic << " seconds. Final maxDiff: " << maxDiff << endl;
+        break;
+    case RunReturnReason::DIVERGED:
+        clog << __LOGSTR__ << name() << "::run:  WARNING: not converged after " << numIters << " passes and "
+                           << toc() - tic << " seconds. Final maxdiff: " << maxDiff << endl;
+        break;
+    }
+
+    return yetToConvergeFraction;
+}
+
 Real CausalBP::run() {
     if( props.verbose >= 1 )
         cerr << "Starting " << identify() << "...";
@@ -494,14 +720,17 @@ Real CausalBP::run() {
                 }
             }
         } else */ if( props.updates == Properties::UpdateType::PARALL ) {
+            #pragma omp parallel for
             for( size_t i = 0; i < nrVars(); ++i )
                 bforeach( const Neighbor &I, nbV(i) )
                     calcNewMessage( i, I.iter );
-
+            
+            #pragma omp parallel for
             for( size_t i = 0; i < nrVars(); ++i )
                 bforeach( const Neighbor &I, nbV(i) )
                     updateMessage( i, I.iter );
 
+            #pragma omp parallel for
             for (size_t i = 0; i < nrVars(); ++i) {
                 auto & vMsg = varMsgs[i];
                 vMsg[0].reset(props.logdomain);
@@ -566,11 +795,9 @@ Real CausalBP::run() {
 
 void CausalBP::calcBeliefV(size_t i, Prob &p ) const {
     p = Prob( var(i).states(), props.logdomain ? 0.0 : 1.0 );
-    bforeach( const Neighbor &I, nbV(i) )
-        if( props.logdomain )
-            p += newMessage( i, I.iter );
-        else
-            p *= newMessage( i, I.iter );
+    auto &vMsg = varMsgs[i];
+    p.set(0, vMsg[0].get(props.logdomain));
+    p.set(1, vMsg[1].get(props.logdomain));
 }
 
 Factor CausalBP::beliefV(size_t i ) const {
@@ -583,21 +810,16 @@ Factor CausalBP::beliefV(size_t i ) const {
     }
     p.normalize();
     
-    return( Factor( var(i), p ) );
+    return { var(i), p };
 }
 
-//Factor CausalBP::beliefF(size_t I ) const {
-//    Prob p;
-//    calcBeliefF( I, p );
-//
-//    if( props.logdomain ) {
-//        p -= p.max();
-//        p.takeExp();
-//    }
-//    p.normalize();
-//
-//    return( Factor( factor(I).vars(), p ) );
-//}
+Factor CausalBP::beliefF(size_t I ) const {
+    Prob p;
+    auto & f = factor(I);
+    if (f.type == CausalFactor::Singleton)
+        return belief(f.head());
+    DAI_THROW(BELIEF_NOT_AVAILABLE);
+}
 
 
 vector<Factor> CausalBP::beliefs() const {
@@ -611,8 +833,8 @@ vector<Factor> CausalBP::beliefs() const {
 
 
 Factor CausalBP::belief(const VarSet &ns ) const {
-    if( ns.size() == 0 )
-        return Factor();
+    if( ns.empty() )
+        return {};
     else if( ns.size() == 1 )
         return beliefV( findVar( *(ns.begin() ) ) );
     else {
@@ -640,8 +862,8 @@ Real CausalBP::logZ() const {
 
 
 void CausalBP::init(const VarSet &ns ) {
-    for( VarSet::const_iterator n = ns.begin(); n != ns.end(); ++n ) {
-        size_t ni = findVar( *n );
+    for( auto& n : ns) {
+        size_t ni = findVar( n );
         auto & vMsg = varMsgs[ni];
         vMsg[0].reset(props.logdomain);
         vMsg[1].reset(props.logdomain);
@@ -658,8 +880,8 @@ void CausalBP::init(const VarSet &ns ) {
 
 
 void CausalBP::updateMessage(size_t i, size_t _I ) {
-    if( recordSentMessages )
-        _sentMessages.push_back(make_pair(i,_I));
+//    if( recordSentMessages )
+//        _sentMessages.push_back(make_pair(i,_I));
     if( props.damping == 0.0 ) {
         message(i,_I) = newMessage(i,_I);
 //        if( props.updates == Properties::UpdateType::SEQMAX )
@@ -675,14 +897,14 @@ void CausalBP::updateMessage(size_t i, size_t _I ) {
 }
 
 
-void CausalBP::updateResidual(size_t i, size_t _I, Real r ) {
-    EdgeProp* pEdge = &_edges[i][_I];
-    pEdge->residual = r;
-
-    // rearrange look-up table (delete and reinsert new key)
-    _lut.erase( _edge2lut[i][_I] );
-    _edge2lut[i][_I] = _lut.insert( make_pair( r, make_pair(i, _I) ) );
-}
+//void CausalBP::updateResidual(size_t i, size_t _I, Real r ) {
+//    EdgeProp* pEdge = &_edges[i][_I];
+//    pEdge->residual = r;
+//
+//    // rearrange look-up table (delete and reinsert new key)
+//    _lut.erase( _edge2lut[i][_I] );
+//    _edge2lut[i][_I] = _lut.insert( make_pair( r, make_pair(i, _I) ) );
+//}
 
 //Real CausalBP::calcFactorDistKL(size_t I) {
 //    Real dist;

@@ -11,7 +11,7 @@
 namespace dai {
     class CausalBP : public DAIAlg<CausalFactorGraph> {
     protected:
-        typedef std::vector<size_t> ind_t;
+//        typedef std::vector<size_t> ind_t;
         struct EdgeProp {
             Prob message;
             Prob newMessage;
@@ -20,17 +20,19 @@ namespace dai {
         
         std::vector<std::vector<EdgeProp> > _edges;
         
-        typedef std::multimap<Real, std::pair<size_t, size_t> > LutType;
-        std::vector<std::vector<LutType::iterator> > _edge2lut;
-        LutType _lut;
+//        typedef std::multimap<Real, std::pair<size_t, size_t> > LutType;
+//        std::vector<std::vector<LutType::iterator> > _edge2lut;
+//        LutType _lut;
 
         Real _maxdiff;
         size_t _iters;
-        std::vector<std::pair<size_t, size_t> > _sentMessages;
+//        std::vector<std::pair<size_t, size_t> > _sentMessages;
         std::vector<Factor> _oldBeliefsV;
 //        std::vector<Factor> _oldBeliefsF;
-        std::vector<Edge> _updateSeq;
-        
+//        std::vector<Edge> _updateSeq;
+
+        std::vector<double> _lowPassBeliefs;
+
     public:
         /// Parameters are the same as BP
         struct Properties {
@@ -75,30 +77,49 @@ namespace dai {
             InfType inference;
         } props;
 
-        /// Specifies whether the history of message updates should be recorded
-        bool recordSentMessages;
+//        /// Specifies whether the history of message updates should be recorded
+//        bool recordSentMessages;
         
     public:
         CausalBP() : DAIAlg<CausalFactorGraph>(),  
-                _edges(), _edge2lut(), _lut(), _maxdiff(0.0), _iters(0U),
-                _sentMessages(), _oldBeliefsV()/*, _oldBeliefsF()*/, _updateSeq(), props(), recordSentMessages(false),
+                _edges()/*, _edge2lut(), _lut()*/, _maxdiff(0.0), _iters(0U)/*, recordSentMessages(false),
+                _sentMessages()*/, _oldBeliefsV()/*, _oldBeliefsF()*//*, _updateSeq()*/, props(), 
 //                factorMsgs(nrFactors(), {AccumulateMsg{props.logdomain}, AccumulateMsg{props.logdomain}}),
                 varMsgs(nrVars(), {AccumulateMsg{props.logdomain}, AccumulateMsg{props.logdomain}}) {}
         
         CausalBP(const CausalFactorGraph &x, const PropertySet &opts ) : DAIAlg<CausalFactorGraph>(x),
-                _edges(), _edge2lut(), _lut(), _maxdiff(0.0), _iters(0U),
-                _sentMessages(), _oldBeliefsV()/*, _oldBeliefsF()*/, _updateSeq(), props(), recordSentMessages(false),
+                _edges()/*, _edge2lut(), _lut()*/, _maxdiff(0.0), _iters(0U)/*, recordSentMessages(false),
+                _sentMessages()*/, _oldBeliefsV()/*, _oldBeliefsF()*//*, _updateSeq()*/, props(), 
 //                factorMsgs(nrFactors(), {AccumulateMsg{props.logdomain}, AccumulateMsg{props.logdomain}}),
                 varMsgs(nrVars(), {AccumulateMsg{props.logdomain}, AccumulateMsg{props.logdomain}}) {
             setProperties( opts );
             construct();
         }
         
+        CausalBP( const CausalBP &x ) : DAIAlg<CausalFactorGraph>(x), 
+                _edges(x._edges)/*, _edge2lut(x._edge2lut), _lut(x._lut)*/, _maxdiff(x._maxdiff), _iters(x._iters)/*, recordSentMessages(x.recordSentMessages), 
+                _sentMessages(x._sentMessages)*/, _oldBeliefsV(x._oldBeliefsV)/*, _updateSeq(x._updateSeq)*/, props(x.props), 
+                _lowPassBeliefs(x._lowPassBeliefs), varMsgs(x.varMsgs) {
+//            for( LutType::iterator l = _lut.begin(); l != _lut.end(); ++l )
+//                _edge2lut[l->second.first][l->second.second] = l;
+        }
+        
         CausalBP& operator=(const CausalBP &x ) {
             if (this != &x) {
                 InfAlg::operator=( x );
-                // TODO pass graph
-                // TODO pass intermediate results
+                _edges = x._edges;
+//                _lut = x._lut;
+//                for( LutType::iterator l = _lut.begin(); l != _lut.end(); ++l )
+//                    _edge2lut[l->second.first][l->second.second] = l;
+                _maxdiff = x._maxdiff;
+                _iters = x._iters;
+//                recordSentMessages = x.recordSentMessages;
+//                _sentMessages = x._sentMessages;
+                _oldBeliefsV = x._oldBeliefsV;
+//                _updateSeq = x._updateSeq;
+                props = x.props;
+                _lowPassBeliefs = x._lowPassBeliefs;
+                varMsgs = x.varMsgs;
             }
             return *this;
         }
@@ -113,7 +134,7 @@ namespace dai {
         Factor belief( const Var &v ) const override { return beliefV( findVar(v) ); }
         Factor belief( const VarSet &vs ) const override;
         Factor beliefV( size_t i ) const override;
-//        Factor beliefF( size_t I ) const override;
+        Factor beliefF( size_t I ) const override;
         std::vector<Factor> beliefs() const override;
         Real logZ() const override;
         
@@ -128,12 +149,17 @@ namespace dai {
         PropertySet getProperties() const override;
         std::string printProperties() const override;
         
-        const std::vector<std::pair<size_t, size_t> >& getSentMessages() const {
-            return _sentMessages;
+//        const std::vector<std::pair<size_t, size_t> >& getSentMessages() const {
+//            return _sentMessages;
+//        }
+//        
+//        void clearSentMessages() { _sentMessages.clear(); }
+        
+
+        double run(double tolerance, size_t minIters, size_t maxIters, size_t histLength);
+        double newBelief(size_t varIndex) const {
+            return _lowPassBeliefs[varIndex];
         }
-        
-        void clearSentMessages() { _sentMessages.clear(); }
-        
     protected:
         const Prob & message(size_t i, size_t _I) const { return _edges[i][_I].message; }
         Prob & message(size_t i, size_t _I) { return _edges[i][_I].message; }
@@ -197,6 +223,11 @@ namespace dai {
                     return logdomain ? dai::log((Real) 0) : 0;
                 }
                 return logdomain ? (msg - m) : (msg / m);
+            }
+            Real get(bool logdomain) const {
+                if (zeros.empty())
+                    return msg;
+                return logdomain ? dai::log((Real) 0) : 0;
             }
         };
         std::vector<std::array<AccumulateMsg, 2>> /*factorMsg,*/ varMsgs;

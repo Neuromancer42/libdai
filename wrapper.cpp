@@ -1,4 +1,6 @@
 #include <dai/alldai.h>
+#include <dai_ext/causal_bp.h>
+#include <dai_ext/causal_fg.h>
 using namespace dai;
 
 #include <boost/lexical_cast.hpp>
@@ -12,19 +14,32 @@ using namespace dai;
 #include <vector>
 using namespace std;
 
+static bool is_causal;
 static FactorGraph fg;
+static CausalFactorGraph causal_fg;
 static PropertySet opts;
-static BP bp;
+static unique_ptr<BP> bp;
+static unique_ptr<CausalBP> causal_bp;
 static map<int, bool> clamps;
 
 void initBP() {
-    bp = BP(fg, opts);
+    assert(!causal_bp);
+    if (is_causal)
+        causal_bp.reset(new CausalBP(causal_fg, opts));
+    else
+        bp.reset(new BP(fg, opts));
     for (const auto& clamp : clamps) {
         int varIndex = clamp.first;
         bool varValue = clamp.second;
-        bp.clamp(varIndex, varValue ? 1 : 0);
+        if (is_causal)
+            causal_bp->clamp(varIndex, varValue ? 1 : 0);
+        else
+            bp->clamp(varIndex, varValue ? 1 : 0);
     }
-    bp.init();
+    if (is_causal)
+        causal_bp->init();
+    else
+        bp->init();
 }
 
 void queryVariable() {
@@ -33,7 +48,8 @@ void queryVariable() {
     clog << __LOGSTR__ << "Q " << varIndex << endl;
 
     // auto ans = bp.belief(fg.var(varIndex)).get(1);
-    auto ans = bp.newBelief(varIndex);
+    Real ans = is_causal ? causal_bp->newBelief(varIndex)
+                    : bp->newBelief(varIndex);
     clog << __LOGSTR__ << "Returning " << ans << "." << endl;
     cout << ans << endl;
 }
@@ -43,7 +59,8 @@ void queryFactor() {
     cin >> factorIndex >> valueIndex;
     clog << __LOGSTR__ << "FQ " << factorIndex << " " << valueIndex << endl;
 
-    auto ans = bp.beliefF(factorIndex).get(valueIndex);
+    auto ans = is_causal ? causal_bp->beliefF(factorIndex).get(valueIndex)
+                    : bp->beliefF(factorIndex).get(valueIndex); 
     clog << __LOGSTR__ << "Returning " << ans << "." << endl;
     cout << ans << endl;
 }
@@ -55,7 +72,9 @@ void runBP() {
     clog << __LOGSTR__ << "BP " << tolerance << " " << minIters << " " << maxIters << " " << histLength << endl;
 
     initBP();
-    double yetToConvergeFraction = bp.run(tolerance, minIters, maxIters, histLength);
+    double yetToConvergeFraction = 
+            is_causal ? causal_bp->run(tolerance, minIters, maxIters, histLength)
+                    : bp->run(tolerance, minIters, maxIters, histLength);
     cout << yetToConvergeFraction << endl;
 }
 
@@ -85,18 +104,26 @@ int main(int argc, char *argv[]) {
         cerr << __LOGSTR__ << "Insufficient number of arguments." << endl;
         return 1;
     }
-    char *factorGraphFileName = argv[1];
-
+    string factorGraphFileName = argv[1];
+    is_causal = factorGraphFileName.substr(
+            factorGraphFileName.find_last_of(".") + 1
+            ) == "causal_fg";
     clog << __LOGSTR__ << "Hello!" << endl
                        << "wrapper.cpp compiled on " << __DATE__ << " at " << __TIME__ << "." << endl;
-    fg.ReadFromFile(factorGraphFileName);
+    if (is_causal)
+        causal_fg.ReadFromFile(factorGraphFileName.c_str());
+    else
+        fg.ReadFromFile(factorGraphFileName.c_str());
     clog << __LOGSTR__ << "Finished reading factor graph." << endl;
 
     opts.set("maxiter", static_cast<size_t>(10000000));
     opts.set("maxtime", Real(57600));
     opts.set("tol", Real(1e-6));
     opts.set("verb", static_cast<size_t>(1));
-    opts.set("updates", string("SEQRND")); // "SEQRND", or "PARALL", or "SEQFIX", or "SEQRNDPAR"
+    if (is_causal)
+        opts.set("updates", string("PARALL"));
+    else
+        opts.set("updates", string("SEQRND")); // "SEQRND", or "PARALL", or "SEQFIX", or "SEQRNDPAR"
     opts.set("logdomain", true);
 
     initBP();
