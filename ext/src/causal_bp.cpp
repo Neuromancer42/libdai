@@ -52,6 +52,31 @@ static inline void CausalScaleLog(Real &x, Real &y) {
         y -= m;
     }
 }
+
+static inline Real calcBeliefFDistLINF(const CausalFacBelief & a, const CausalFacBelief & b) {
+    DAI_ASSERT(a.size() == b.size());
+    Real d = 0;
+    for (size_t i = 0; i < a.size(); ++i) {
+        d += dai::abs(a[i] - b[i]) / (Real) 2;
+    }
+    return d / (Real) a.size();
+}
+//Real CausalBP::calcFactorDistKL(size_t I) {
+//    Real dist;
+//    switch (factor(I).type) {
+//        case CausalFactor::Singleton: {
+//            break;
+//        }
+//        case CausalFactor::DefiniteAnd: {
+//            break;
+//        }
+//        case CausalFactor::DefiniteOr: {
+//            break;
+//        }
+//    } 
+//    return dist;
+//}
+
 void CausalBP::setProperties(const PropertySet &opts ) {
     DAI_ASSERT( opts.hasKey("tol") );
     DAI_ASSERT( opts.hasKey("logdomain") );
@@ -147,16 +172,16 @@ void CausalBP::construct() {
     _oldBeliefsV.reserve( nrVars() );
     for( size_t i = 0; i < nrVars(); ++i )
         _oldBeliefsV.emplace_back( var(i) );
-//    _oldBeliefsF.clear();
-//    _oldBeliefsF.reserve( nrFactors() );
-//    for( size_t I = 0; I < nrFactors(); ++I )
-//        _oldBeliefsF.push_back( Factor( factor(I).vars() ) );
+    _oldBeliefsF.clear();
+    _oldBeliefsF.reserve( nrFactors() );
+    for( size_t I = 0; I < nrFactors(); ++I )
+        _oldBeliefsF.emplace_back( factor(I).vars().size() );
     
-//    _updateSeq.clear();
-//    _updateSeq.reserve( nrEdges() );
-//    for( size_t I = 0; I < nrFactors(); I++ )
-//        bforeach( const Neighbor &i, nbF(I) )
-//            _updateSeq.push_back( Edge( i, i.dual ) );
+    _updateSeq.clear();
+    _updateSeq.reserve( nrEdges() );
+    for( size_t I = 0; I < nrFactors(); I++ )
+        bforeach( const Neighbor &i, nbF(I) )
+            _updateSeq.push_back( Edge( i, i.dual ) );
 }
 
 
@@ -229,6 +254,24 @@ void CausalBP::init() {
 //    return prod;
 //}
 
+void CausalBP::calcIncomingCausalMessages(size_t I, CausalFacBelief &causalBelief) const {
+    causalBelief.resize(factor(I).vars().size());
+    bforeach( const Neighbor &j, nbF(I) ) {
+        Prob prod_j(var(j).states(), props.logdomain ? 0.0 : 1.0);
+        auto &vMsg = varMsgs[j];
+        auto &origMsg = message(j, j.dual);
+        Real prod_j0 = vMsg[0].residual(props.logdomain, I, origMsg[0]);
+        Real prod_j1 = vMsg[1].residual(props.logdomain, I, origMsg[1]);
+        if (props.logdomain) {
+//             prod_j.takeExp();
+            prod_j0 = dai::exp(prod_j0);
+            prod_j1 = dai::exp(prod_j1);
+//             prod_j.normalize();
+        }
+        CausalNormalize(prod_j0, prod_j1);
+        causalBelief[j.iter] = prod_j1;
+    }
+}
 
 void CausalBP::calcNewMessage(size_t i, size_t _I ) {
     size_t I = nbV(i, _I);
@@ -576,7 +619,7 @@ double CausalBP::run(double tolerance, size_t minIters, size_t maxIters, size_t 
                 calcNewMessage( e.first, e.second );
                 updateMessage( e.first, e.second );
             }
-        } else {
+        }*/ else {
             // Sequential updates
             if( props.updates == Properties::UpdateType::SEQRND )
                 random_shuffle( _updateSeq.begin(), _updateSeq.end(), rnd );
@@ -585,7 +628,7 @@ double CausalBP::run(double tolerance, size_t minIters, size_t maxIters, size_t 
                 calcNewMessage( e.first, e.second );
                 updateMessage( e.first, e.second );
             }
-        }*/
+        }
 
         // calculate new beliefs and compare with old ones
         maxDiff = -INFINITY;
@@ -620,25 +663,25 @@ double CausalBP::run(double tolerance, size_t minIters, size_t maxIters, size_t 
                 beliefHist[i].pop();
             }
         }
-//        for( size_t I = 0; I < nrFactors(); ++I ) {
-//            Factor b( beliefF(I) );
-//            Real iDist = dist( b, _oldBeliefsF[I], DISTLINF );
-//            maxDiff = std::max( maxDiff, iDist );
-//            if (iDist > tolerance) {
-//                nonConvergedElems++;
-//            }
-//
-//            if (iDist == 0) {
-//                diffHistogram[minBucketIndex]++;
-//            } else {
-//                int bucketIndex = std::max(static_cast<int>(ceil(log2(iDist) - log2(props.tol))), minBucketIndex);
-//                diffHistogram[bucketIndex]++;
-//                maxBucketIndex = std::max(maxBucketIndex, bucketIndex);
-//            }
-//            _oldBeliefsF[I] = b;
-//        }
+        for( size_t I = 0; I < nrFactors(); ++I ) {
+            CausalFacBelief b = causalBeliefF(I);
+            Real iDist = calcBeliefFDistLINF( b, _oldBeliefsF[I] );
+            maxDiff = std::max( maxDiff, iDist );
+            if (iDist > tolerance) {
+                nonConvergedElems++;
+            }
 
-        yetToConvergeFraction = static_cast<double>(nonConvergedElems) / (nrVars()/* + nrFactors()*/);
+            if (iDist == 0) {
+                diffHistogram[minBucketIndex]++;
+            } else {
+                int bucketIndex = std::max(static_cast<int>(ceil(log2(iDist) - log2(props.tol))), minBucketIndex);
+                diffHistogram[bucketIndex]++;
+                maxBucketIndex = std::max(maxBucketIndex, bucketIndex);
+            }
+            _oldBeliefsF[I] = b;
+        }
+
+        yetToConvergeFraction = static_cast<double>(nonConvergedElems) / (nrVars() + nrFactors());
 
         clog << __LOGSTR__ << name() << "::run():  maxdiff: " << maxDiff
                                      << ". numIters: " << numIters
@@ -748,7 +791,7 @@ Real CausalBP::run() {
                 vMsg[0].reset(props.logdomain);
                 vMsg[1].reset(props.logdomain);
                 bforeach( const Neighbor &I, nbV(i) ) {
-                    auto & m = message(i, I.iter);
+                    auto & m = newMessage(i, I.iter);
                     vMsg[0].accumulate(props.logdomain, I, m[0]);
                     vMsg[1].accumulate(props.logdomain, I, m[1]);
                     if (props.logdomain) {
@@ -758,7 +801,7 @@ Real CausalBP::run() {
                     }
                 }
             }
-        } /* else {
+        } else {
             if( props.updates == Properties::UpdateType::SEQRND )
                 // TOOD: modify randome_shuffle to support multi-thread call
                 random_shuffle( _updateSeq.begin(), _updateSeq.end(), rnd );
@@ -767,7 +810,7 @@ Real CausalBP::run() {
                 calcNewMessage( e.first, e.second );
                 updateMessage( e.first, e.second );
             }
-        } */
+        }
         
         maxDiff = -INFINITY;
         for( size_t i = 0; i < nrVars(); ++i ) {
@@ -775,12 +818,11 @@ Real CausalBP::run() {
             maxDiff = std::max( maxDiff, dist( b, _oldBeliefsV[i], DISTLINF ) );
             _oldBeliefsV[i] = b;
         }
-//        for( size_t I = 0; I < nrFactors(); ++I ) {
-//            Factor b( beliefF(I) );
-//            // TODO: how to calculate this?
-//            maxDiff = std::max( maxDiff, dist( b, _oldBeliefsF[I], DISTLINF ) );
-//            _oldBeliefsF[I] = b;
-//        }
+        for( size_t I = 0; I < nrFactors(); ++I ) {
+            CausalFacBelief b = causalBeliefF(I);
+            maxDiff = std::max( maxDiff, calcBeliefFDistLINF( b, _oldBeliefsF[I] ) );
+            _oldBeliefsF[I] = b;
+        }
         
         if( props.verbose >= 3 )
             cerr << name() << "::run:  maxdiff " << maxDiff << " after " << _iters+1 << " passes" << endl;
@@ -833,6 +875,11 @@ Factor CausalBP::beliefF(size_t I ) const {
     DAI_THROW(BELIEF_NOT_AVAILABLE);
 }
 
+CausalFacBelief CausalBP::causalBeliefF(size_t I) const {
+    CausalFacBelief b;
+    calcIncomingCausalMessages(I, b);
+    return b;
+}
 
 vector<Factor> CausalBP::beliefs() const {
     vector<Factor> result;
@@ -894,18 +941,23 @@ void CausalBP::init(const VarSet &ns ) {
 void CausalBP::updateMessage(size_t i, size_t _I ) {
 //    if( recordSentMessages )
 //        _sentMessages.push_back(make_pair(i,_I));
-    if( props.damping == 0.0 ) {
-        message(i,_I) = newMessage(i,_I);
-//        if( props.updates == Properties::UpdateType::SEQMAX )
-//            updateResidual( i, _I, 0.0 );
-    } else {
-        if( props.logdomain )
-            message(i,_I) = (message(i,_I) * props.damping) + (newMessage(i,_I) * (1.0 - props.damping));
+    Prob newMsg = newMessage(i, _I);
+    Prob &origMsg = message(i, _I);
+    if (props.damping != 0) {
+        if (props.logdomain)
+            newMsg = (origMsg * props.damping) + (newMsg * (1.0 - props.damping));
         else
-            message(i,_I) = (message(i,_I) ^ props.damping) * (newMessage(i,_I) ^ (1.0 - props.damping));
+            newMsg = (origMsg ^ props.damping) * (newMsg ^ (1.0 - props.damping));
 //        if( props.updates == Properties::UpdateType::SEQMAX )
 //            updateResidual( i, _I, dist( newMessage(i,_I), message(i,_I), DISTLINF ) );
     }
+    if (props.updates != Properties::UpdateType::PARALL) {
+        auto I = nbV(i, _I);
+        auto &vMsg = varMsgs[i];
+        vMsg[0].reset(I, origMsg[0], props.logdomain).accumulate(props.logdomain, I, newMsg[0]);
+        vMsg[1].reset(I, origMsg[1], props.logdomain).accumulate(props.logdomain, I, newMsg[1]);
+    }
+    message(i,_I) = newMsg;
 }
 
 
@@ -918,18 +970,3 @@ void CausalBP::updateMessage(size_t i, size_t _I ) {
 //    _edge2lut[i][_I] = _lut.insert( make_pair( r, make_pair(i, _I) ) );
 //}
 
-//Real CausalBP::calcFactorDistKL(size_t I) {
-//    Real dist;
-//    switch (factor(I).type) {
-//        case CausalFactor::Singleton: {
-//            break;
-//        }
-//        case CausalFactor::DefiniteAnd: {
-//            break;
-//        }
-//        case CausalFactor::DefiniteOr: {
-//            break;
-//        }
-//    } 
-//    return dist;
-//}

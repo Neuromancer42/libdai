@@ -37,3 +37,8 @@ if(SWIG_FOUND)
     message(STATUS "SWIG found: ${SWIG_EXECUTABLE} (version: ${SWIG_VERSION})")
     add_subdirectory(wrapper)
 endif()
+
+add_executable(bp_wrapper wrapper.cpp)
+target_include_directories(bp_wrapper PUBLIC include ext/include)
+target_link_libraries(bp_wrapper dai_ext dai)
+install(TARGETS bp_wrapper DESTINATION bin)

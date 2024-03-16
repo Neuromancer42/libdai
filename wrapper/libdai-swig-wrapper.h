@@ -49,7 +49,7 @@ public:
         opts.set("tol", dai::Real(tol));
         opts.set("verbose", verbose);
         if (alg == "BP") {
-            opts.set("updates", std::string("PARALL"));
+            opts.set("updates", std::string("SEQRND"));
             opts.set("logdomain", true);
             if (fg != nullptr)
                 infalg = new dai::BP(*fg, opts);

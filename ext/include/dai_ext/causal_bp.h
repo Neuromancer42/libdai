@@ -9,6 +9,11 @@
 #include "dai_ext/causal_fg.h"
 
 namespace dai {
+
+    using CausalVarBelief = Factor;
+    
+    using CausalFacBelief = std::vector<Real>;
+    
     class CausalBP : public DAIAlg<CausalFactorGraph> {
     protected:
 //        typedef std::vector<size_t> ind_t;
@@ -27,9 +32,9 @@ namespace dai {
         Real _maxdiff;
         size_t _iters;
 //        std::vector<std::pair<size_t, size_t> > _sentMessages;
-        std::vector<Factor> _oldBeliefsV;
-//        std::vector<Factor> _oldBeliefsF;
-//        std::vector<Edge> _updateSeq;
+        std::vector<CausalVarBelief> _oldBeliefsV;
+        std::vector<CausalFacBelief> _oldBeliefsF;
+        std::vector<Edge> _updateSeq;
 
         std::vector<double> _lowPassBeliefs;
 
@@ -43,7 +48,7 @@ namespace dai {
              *  - SEQRND sequential updates using a random sequence
              *  - SEQMAX maximum-residual updates [\ref EMK06]
              */
-            DAI_ENUM(UpdateType/*,SEQFIX,SEQRND,SEQMAX*/,PARALL);
+            DAI_ENUM(UpdateType,SEQFIX,SEQRND,PARALL);
 
             /// Enumeration of inference variants
             /** There are two inference variants:
@@ -83,13 +88,13 @@ namespace dai {
     public:
         CausalBP() : DAIAlg<CausalFactorGraph>(),  
                 _edges()/*, _edge2lut(), _lut()*/, _maxdiff(0.0), _iters(0U)/*, recordSentMessages(false),
-                _sentMessages()*/, _oldBeliefsV()/*, _oldBeliefsF()*//*, _updateSeq()*/, props(), 
+                _sentMessages()*/, _oldBeliefsV(), _oldBeliefsF(), _updateSeq(), props(), 
 //                factorMsgs(nrFactors(), {AccumulateMsg{props.logdomain}, AccumulateMsg{props.logdomain}}),
                 varMsgs(nrVars(), {AccumulateMsg{props.logdomain}, AccumulateMsg{props.logdomain}}) {}
         
         CausalBP(const CausalFactorGraph &x, const PropertySet &opts ) : DAIAlg<CausalFactorGraph>(x),
                 _edges()/*, _edge2lut(), _lut()*/, _maxdiff(0.0), _iters(0U)/*, recordSentMessages(false),
-                _sentMessages()*/, _oldBeliefsV()/*, _oldBeliefsF()*//*, _updateSeq()*/, props(), 
+                _sentMessages()*/, _oldBeliefsV(), _oldBeliefsF(), _updateSeq(), props(), 
 //                factorMsgs(nrFactors(), {AccumulateMsg{props.logdomain}, AccumulateMsg{props.logdomain}}),
                 varMsgs(nrVars(), {AccumulateMsg{props.logdomain}, AccumulateMsg{props.logdomain}}) {
             setProperties( opts );
@@ -98,7 +103,7 @@ namespace dai {
         
         CausalBP( const CausalBP &x ) : DAIAlg<CausalFactorGraph>(x), 
                 _edges(x._edges)/*, _edge2lut(x._edge2lut), _lut(x._lut)*/, _maxdiff(x._maxdiff), _iters(x._iters)/*, recordSentMessages(x.recordSentMessages), 
-                _sentMessages(x._sentMessages)*/, _oldBeliefsV(x._oldBeliefsV)/*, _updateSeq(x._updateSeq)*/, props(x.props), 
+                _sentMessages(x._sentMessages)*/, _oldBeliefsV(x._oldBeliefsV), _updateSeq(x._updateSeq), props(x.props), 
                 _lowPassBeliefs(x._lowPassBeliefs), varMsgs(x.varMsgs) {
 //            for( LutType::iterator l = _lut.begin(); l != _lut.end(); ++l )
 //                _edge2lut[l->second.first][l->second.second] = l;
@@ -116,7 +121,7 @@ namespace dai {
 //                recordSentMessages = x.recordSentMessages;
 //                _sentMessages = x._sentMessages;
                 _oldBeliefsV = x._oldBeliefsV;
-//                _updateSeq = x._updateSeq;
+                _updateSeq = x._updateSeq;
                 props = x.props;
                 _lowPassBeliefs = x._lowPassBeliefs;
                 varMsgs = x.varMsgs;
@@ -135,6 +140,7 @@ namespace dai {
         Factor belief( const VarSet &vs ) const override;
         Factor beliefV( size_t i ) const override;
         Factor beliefF( size_t I ) const override;
+        CausalFacBelief causalBeliefF(size_t I) const;
         std::vector<Factor> beliefs() const override;
         Real logZ() const override;
         
@@ -177,31 +183,32 @@ namespace dai {
 //        virtual void calcBeliefF( size_t I, Prob &p ) const {
 //            p = calcIncomingMessageProduct( I, false, 0 );
 //        }
+        void calcIncomingCausalMessages(size_t I, CausalFacBelief& causalBelief) const;
         
         virtual void construct();
         
     private:
-//        Real calcFactorDistKL(size_t I);
-        
         struct AccumulateMsg {
             Real msg;
             std::set<size_t> zeros{};
             explicit AccumulateMsg(bool logdomain) {
                 msg = logdomain ? 0.0 : 1.0;
             }
-            void reset(size_t id, Real origMsg, bool logdomain) {
+            AccumulateMsg& reset(size_t id, Real origMsg, bool logdomain) {
                 if (zeros.erase(id) == 0) {
                     if (logdomain)
                         msg -= origMsg;
                     else
                         msg /= origMsg;
                 }
+                return *this;
             }
-            void reset(bool logdomain) {
+            AccumulateMsg& reset(bool logdomain) {
                 msg = logdomain ? 0.0 : 1.0;
                 zeros.clear();
+                return *this;
             }
-            void accumulate(bool logdomain, size_t id, Real m) {
+            AccumulateMsg& accumulate(bool logdomain, size_t id, Real m) {
                 if (logdomain) {
                     if (isinf(m))
                         zeros.insert(id);
@@ -213,6 +220,7 @@ namespace dai {
                     else
                         msg *= m;
                 }
+                return *this;
             }
             Real residual(bool logdomain, size_t i, Real m) const {
                 if (zeros.size() > 1)
