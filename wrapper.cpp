@@ -119,10 +119,7 @@ int main(int argc, char *argv[]) {
     opts.set("maxtime", Real(57600));
     opts.set("tol", Real(1e-6));
     opts.set("verb", static_cast<size_t>(1));
-    if (is_causal)
-        opts.set("updates", string("PARALL"));
-    else
-        opts.set("updates", string("SEQRND")); // "SEQRND", or "PARALL", or "SEQFIX", or "SEQRNDPAR"
+    opts.set("updates", string("SEQFIX")); // "SEQRND", or "PARALL", or "SEQFIX", or "SEQRNDPAR"
     opts.set("logdomain", true);
 
     initBP();

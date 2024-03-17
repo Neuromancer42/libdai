@@ -512,10 +512,12 @@ double CausalBP::run(double tolerance, size_t minIters, size_t maxIters, size_t 
     assert(0 < histLength && histLength < minIters && minIters < maxIters);
     
     int thread_num = 1;
-    #pragma omp parallel
-    {
-        #pragma omp single
-        thread_num = omp_get_num_threads();
+    if (props.updates == Properties::UpdateType::PARALL) {
+        #pragma omp parallel
+        {
+            #pragma omp single
+            thread_num = omp_get_num_threads();
+        }
     }
     clog << __LOGSTR__ << "Starting " << identify()
                        << "...  tolerance: " << tolerance
