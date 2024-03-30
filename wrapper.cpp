@@ -114,7 +114,11 @@ int main(int argc, char *argv[]) {
     else
         fg.ReadFromFile(factorGraphFileName.c_str());
     clog << __LOGSTR__ << "Finished reading factor graph." << endl;
-
+    if (argc > 2) {
+        size_t seed = std::stoi(argv[2]);
+        clog << __LOGSTR__ << "Setting random seed: " << seed << endl; 
+        dai::rnd_seed(seed);
+    }
     opts.set("maxiter", static_cast<size_t>(10000000));
     opts.set("maxtime", Real(57600));
     opts.set("tol", Real(1e-6));
