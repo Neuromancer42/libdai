@@ -36,6 +36,7 @@ utils/fg2dot
 utils/fginfo
 utils/uai2fg
 jnilib/
+bin/
 /cmake-build*
 /build/
 /.idea

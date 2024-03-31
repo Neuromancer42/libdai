@@ -16,6 +16,8 @@
 #include <dai/util.h>
 #include <dai/bipgraph.h>
 #include <dai/graph.h>
+#include <dai/factor.h>
+#include <dai/factorgraph.h>
 
 namespace dai {
     
@@ -36,19 +38,20 @@ namespace dai {
         Var _head;
         VarSet _body; 
         Real _p;
+        Real _q = 0;
         VarSet _vs; // duplicate for usage
         
         friend std::ostream& operator<< (std::ostream&, const CausalFactor&);
         
     public:
-        explicit CausalFactor( const Var &v, Real p = 1 ) : _head(v), _body(), _p(p), type(Singleton) {
+        explicit CausalFactor( const Var &v, Real p = 1) : _head(v), _body(), _p(p), type(Singleton) {
             _vs = VarSet();
             _vs.insert(_head);
             head_clamped = false;
             head_mask = Prob{std::vector<Real>{1, 1}};
         }
         
-        CausalFactor( const Var &head, const VarSet &body, bool isAnd, Real p = 1) : _head(head), _body(body), _p(p) {
+        CausalFactor( const Var &head, const VarSet &body, bool isAnd, Real p = 1, Real q = 0) : _head(head), _body(body), _p(p), _q(q) {
             if (isAnd)
                 type = DefiniteAnd;
             else
@@ -82,6 +85,10 @@ namespace dai {
                         if (_body.contains(i)) {
                             newFac._body.erase(i);
                         }
+                        // Note: if the body is negated, the clamp is also erased
+                        if ((x == 0 && type == DefiniteAnd) || (x > 0 && type == DefiniteOr)) {
+                            newFac._p = _q;
+                        }
                     }
                     break;
             }
@@ -89,6 +96,8 @@ namespace dai {
         }
         
         Real prob() const { return _p; }
+        
+        Real prob_default() const { return _q; }
         
         const Var& head() const { return _head; }
         const VarSet& body() const { return _body; }
@@ -101,6 +110,42 @@ namespace dai {
             std::ostringstream ss;
             ss << *this;
             return ss.str();
+        }
+        
+        Factor factor() const {
+            std::vector<Var> vars;
+            vars.reserve(_vs.size());
+            vars.push_back(_head);
+            for (auto& b: _body)
+                vars.push_back(b);
+            std::vector<Real> probs;
+            probs.reserve(_vs.nrStates().get_ui());
+            switch (type) {
+                case Singleton: {
+                    probs.push_back(1 - _p);
+                    probs.push_back(_p);
+                    break;
+                }
+                case DefiniteAnd: {
+                    for (size_t i = 0; i < _body.nrStates() - 1; ++i) {
+                        probs.push_back(1-_q);
+                        probs.push_back(_q);
+                    }
+                    probs.push_back(1-_p);
+                    probs.push_back(_p);
+                    break;
+                }
+                case DefiniteOr: {
+                    probs.push_back(_p);
+                    probs.push_back(1-_p);
+                    for (size_t i = 1; i < _body.nrStates(); ++i) {
+                        probs.push_back(_q);
+                        probs.push_back(1-_q);
+                    }
+                    break;
+                }
+            }
+            return {vars, probs};
         }
     };
     
@@ -257,6 +302,14 @@ namespace dai {
         void fromString( const std::string& s ) {
             std::stringstream ss( s );
             ss >> *this;
+        }
+        
+        FactorGraph factorgraph() const {
+            std::vector<Factor> facs;
+            for (const auto & f : factors()) {
+                facs.push_back(f.factor());
+            }
+            return {facs};
         }
 
     private:

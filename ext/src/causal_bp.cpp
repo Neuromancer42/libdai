@@ -294,10 +294,10 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                 mask1 = factor(I).head_mask[1];
             }
             
-            constexpr Real arg0 = 0, arg1 = 1;
-            Real pAnd = factor(I).prob();
+            Real p1 = factor(I).prob();
+            Real p0 = factor(I).prob_default();
             if (factor(I).head() == var(i)) {
-                Real t0 = 1, t1 = arg0*(1-pAnd)+arg1*pAnd, e1 = 0;
+                Real t0 = 1, t1 = 1, e1 = 0;
 
                 bforeach(const Neighbor &j, nbF(I)) {
                     if (j != i) {
@@ -319,9 +319,9 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
 //                        Real a0 = (prod_j[0] + prod_j[1]);
                         Real a0 = prod_j0 + prod_j1;
 //                        Real a1 = (arg0 * prod_j[0] + arg1 * prod_j[1]);
-                        Real a1 = arg0 * prod_j0 + arg1 * prod_j1;
+                        Real a1 = prod_j1;
 //                        Real delta = (1-arg0)*prod_j[0] + (1-arg1)*prod_j[1];
-                        Real delta = (1 - arg0) * prod_j0 + (1  - arg1) * prod_j1;
+                        Real delta = prod_j0;
                         t0 *= a0;
                         t1 *= a1;
                         CausalScale(t0, t1);
@@ -331,10 +331,12 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                     }
                 }
 //                marg = Prob(std::vector<Real>{e1 * t0 + (t0 - t1), t1}) * mask;
-                marg0 = (e1 * t0 + (t0 - t1)) * mask0;
-                marg1 = t1 * mask1;
+//                marg0 = (e1 * t0 + (t0 - t1)) * mask0;
+//                marg1 = t1 * mask1;
+                marg0 = ((1 - p1) * t1 + (1 - p0) * (e1 * t0 + (t0 - t1))) * mask0;
+                marg1 = (p1 * t1 + p0 * (e1 * t0 + (t0 - t1))) * mask1;
             } else {
-                Real t0 = arg0*(1-pAnd)+arg1*pAnd, t1 = 1;
+                Real t0 = 1, t1 = 1;
                 bforeach(const Neighbor &j, nbF(I)) {
                     if (j != i) {
 //                        Prob prod_j( var(j).states(), props.logdomain ? 0.0 : 1.0);
@@ -353,22 +355,18 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                         CausalNormalize(prod_j0, prod_j1);
                         
                         if (factor(I).head() == var(j)) {
-                            t0 *= (prod_j1 * mask1 - prod_j0 * mask0);
-                            t1 *= prod_j0 * mask0;
+                            t1 *= (p1 - p0) * (prod_j1 * mask1 - prod_j0 * mask0);
+                            t0 *= p0 * prod_j1 * mask1 + (1 - p0) * prod_j0 * mask0;
                         } else {
-                            t0 *= (arg0 * prod_j0 + arg1 * prod_j1);
-                            t1 *= prod_j0 + prod_j1;
+                            t1 *= prod_j1;
+                            t0 *= prod_j0 + prod_j1;
                         }
                         CausalScale(t0, t1);
                     }
                 }
-                Real px0, px1;
-                constexpr Real arg0 = 0, arg1 = 1;
-                px0 = arg0 * t0 + t1;
-                px1 = arg1 * t0 + t1;
 //                marg = Prob(std::vector<Real>{px0, px1});
-                marg0 = px0;
-                marg1 = px1;
+                marg0 = t0;
+                marg1 = t1 + t0;
             }
             break;
         }
@@ -381,10 +379,10 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                 mask1 = factor(I).head_mask[1];
             }
 
-            constexpr Real arg0 = 1, arg1 = 0;
-            Real pOr = factor(I).prob();
+            Real p1 = factor(I).prob();
+            Real p0 = factor(I).prob_default();
             if (factor(I).head() == var(i)) {
-                Real t0 = 1, t1 = arg0*pOr+arg1*(1-pOr), e1 = 0;
+                Real t0 = 1, t1 = 1, e1 = 0;
                 bforeach(const Neighbor &j, nbF(I)) {
                     if (j != i) {
 //                        Prob prod_j( var(j).states(), props.logdomain ? 0.0 : 1.0 );
@@ -403,8 +401,8 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                         CausalNormalize(prod_j0, prod_j1);
                         
                         Real a0 = prod_j0 + prod_j1;
-                        Real a1 = arg0 * prod_j0 + arg1 * prod_j1;
-                        Real delta = (1 - arg0) * prod_j0 + (1 - arg1) * prod_j1;
+                        Real a1 = prod_j0;
+                        Real delta = prod_j1;
                         t0 *= a0;
                         t1 *= a1;
                         CausalScale(t0, t1);
@@ -415,10 +413,10 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                 }
 
 //                marg = Prob(std::vector<Real>{t1, e1 * t0 + (t0 - t1)}) * mask;
-                marg0 = t1 * mask0;
-                marg1 = (e1 * t0 + (t0 - t1)) * mask1;
+                marg0 = (p1 * t1 + p0 * (e1 * t0 + (t0 - t1))) * mask0;
+                marg1 = ((1 - p1) * t1 + (1 - p0) * (e1 * t0 + (t0 - t1))) * mask1;
             } else {
-                Real t0 = arg0*pOr+(arg1*(1-pOr)), t1 = 1;
+                Real t0 = 1, t1 = 1;
                 bforeach(const Neighbor &j, nbF(I)) {
                     if (j != i) {
 //                        Prob prod_j( var(j).states(), props.logdomain ? 0.0 : 1.0 );
@@ -437,22 +435,18 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                         CausalNormalize(prod_j0, prod_j1);
                         
                         if (factor(I).head() == var(j)) {
-                            t0 *= prod_j0 * mask0 - prod_j1 * mask1;
-                            t1 *= prod_j1 * mask1;
+                            t1 *= (p1 - p0) * (prod_j0 * mask0 - prod_j1 * mask1);
+                            t0 *= p0 * prod_j0 * mask0 + (1 - p0) * prod_j1 * mask1;
                         } else {
-                            t0 *= arg0 * prod_j0 + arg1 * prod_j1;
-                            t1 *= prod_j0 + prod_j1;
+                            t1 *= prod_j0;
+                            t0 *= prod_j0 + prod_j1;
                         }
                         CausalScale(t0, t1);
                     }
                 }
-                Real px0, px1;
-                constexpr Real arg0 = 1, arg1 = 0;
-                px0 = arg0 * t0 + t1;
-                px1 = arg1 * t0 + t1;
 //                marg = Prob(std::vector<Real>{px0, px1});
-                marg0 = px0;
-                marg1 = px1;
+                marg0 = t1 + t0;
+                marg1 = t0;
             }
             break;
         }
@@ -958,6 +952,11 @@ void CausalBP::updateMessage(size_t i, size_t _I ) {
         auto &vMsg = varMsgs[i];
         vMsg[0].reset(I, origMsg[0], props.logdomain).accumulate(props.logdomain, I, newMsg[0]);
         vMsg[1].reset(I, origMsg[1], props.logdomain).accumulate(props.logdomain, I, newMsg[1]);
+        if (props.logdomain) {
+            CausalScaleLog(vMsg[0].msg, vMsg[1].msg);
+        } else {
+            CausalScale(vMsg[0].msg, vMsg[1].msg);
+        }
     }
     message(i,_I) = newMsg;
 }

@@ -20,15 +20,19 @@ using namespace dai;
 using namespace std;
 
 std::ostream& dai::operator<< (std::ostream& os, const CausalFactor& f) {
-    os << "(" << f.head() << " " << static_cast<char>(f.type);
+    os << f.head() << std::endl << static_cast<char>(f.type);
     if (f.type == CausalFactor::Singleton) {
-        os << " " << std::setw(os.precision()+4) << f.prob();
+        os << std::endl << std::setw(os.precision()+4) << f.prob() << std::endl;
     } else {
+        os << std::setw(os.precision()+4) << f.prob() << ";"
+            << std::setw(os.precision()+4) << f.prob_default() << std::endl;
+        os << f.body().size() << std::endl;
         for (const auto & v : f.body()) {
-            os << " " << v.label();
+            os << v.label() << " ";
         }
+        os << std::endl;
     }
-    os << ")";
+    os << std::endl;
     return os;
 }
 
@@ -125,7 +129,8 @@ std::istream& dai::operator>> ( std::istream& is, CausalFactorGraph& fg ) {
         DAI_THROWE(INVALID_FACTORGRAPH_FILE,"Cannot read number of causal factors");
     if( verbose >= 1 )
         cerr << "Reading " << nr_Factors << " causal factors..." << endl;
-
+    
+    set<size_t> heads, all_vars;
     for( size_t I = 0; I < nr_Factors; I++ ) {
         getline (is,line);
         if( is.fail() || line.size() > 0 )
@@ -142,6 +147,8 @@ std::istream& dai::operator>> ( std::istream& is, CausalFactorGraph& fg ) {
         if( verbose >= 2 )
             cerr << " head: " << head_id << endl;
         Var head{head_id, 2};
+        heads.insert(head_id);
+        all_vars.insert(head_id);
         
         char type_ch;
         CausalFactor::CausalType type;
@@ -184,10 +191,19 @@ std::istream& dai::operator>> ( std::istream& is, CausalFactorGraph& fg ) {
             facs.emplace_back(head, prob);
         } else {
             Real prob = 1;
+            Real prob_default = 0;
             if (line.length() > 1) {
-                prob = static_cast<Real>(std::stold(line.substr(1)));
+                size_t split_pos = line.find(';');
+                if (split_pos > 1) {
+                    prob = static_cast<Real>(std::stold(line.substr(1, split_pos - 1)));
+                }
+                if (split_pos != string::npos && split_pos + 1 != line.length()) {
+                    prob_default = static_cast<Real>(std::stold(line.substr(split_pos+1)));
+                }
                 if( verbose >= 2 )
-                    cerr << " probability: " << setw(cerr.precision()+4) << prob << endl;
+                    cerr << " probability: " << setw(cerr.precision()+4) << prob
+                        << " default: " << setw(cerr.precision()+4) << prob_default
+                        << endl;
             } else {
                 if( verbose >= 2 )
                     cerr << " definite!" << endl;
@@ -218,8 +234,16 @@ std::istream& dai::operator>> ( std::istream& is, CausalFactorGraph& fg ) {
             for( size_t body_id : body_ids ) {
                 Var body_i{body_id, 2};
                 body.insert(body_i);
+                all_vars.insert(body_id);
             }
-            facs.emplace_back(head, body, type == CausalFactor::DefiniteAnd, prob);
+            facs.emplace_back(head, body, type == CausalFactor::DefiniteAnd, prob, prob_default);
+        }
+    }
+    
+    for (size_t singleton_id : all_vars) {
+        if (heads.find(singleton_id) == heads.end()) {
+            Var single_var{singleton_id, 2};
+            facs.emplace_back(single_var, 0.5);
         }
     }
 
