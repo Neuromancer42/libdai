@@ -103,7 +103,7 @@ namespace dai {
         
         CausalBP( const CausalBP &x ) : DAIAlg<CausalFactorGraph>(x), 
                 _edges(x._edges)/*, _edge2lut(x._edge2lut), _lut(x._lut)*/, _maxdiff(x._maxdiff), _iters(x._iters)/*, recordSentMessages(x.recordSentMessages), 
-                _sentMessages(x._sentMessages)*/, _oldBeliefsV(x._oldBeliefsV), _updateSeq(x._updateSeq), props(x.props), 
+                _sentMessages(x._sentMessages)*/, _oldBeliefsV(x._oldBeliefsV), _oldBeliefsF(x._oldBeliefsF), _updateSeq(x._updateSeq), props(x.props), 
                 _lowPassBeliefs(x._lowPassBeliefs), varMsgs(x.varMsgs) {
 //            for( LutType::iterator l = _lut.begin(); l != _lut.end(); ++l )
 //                _edge2lut[l->second.first][l->second.second] = l;
