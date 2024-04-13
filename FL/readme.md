@@ -19,8 +19,8 @@ python3 s.py parsebp ori [clean]
 python3 s.py parsebp opt [clean]
 ```
 
-Original bp time is in "Path2SmartFL"/bptime/ori/bp.log
-Optimized bp time is in "Path2SmartFL"/bptime/opt/bp.log
+Original bp time is in "Path2SmartFL"/bptime/ori/bp.log  
+Optimized bp time is in "Path2SmartFL"/bptime/opt/bp.log  
 Add "clean" to remove previous log
 
 ## Calculate acceleration rate
