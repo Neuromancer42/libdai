@@ -10,7 +10,7 @@ git apply "Path2ThisRepo"/bp.patch
 
 ## Generate traces
 ```
-python3 s.py tracebp
+python3 s.py runbp
 ```
 
 ## Test bp time
