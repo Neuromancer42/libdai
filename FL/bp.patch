@@ -1,0 +1,537 @@
+diff --git a/bptime/count.py b/bptime/count.py
+new file mode 100644
+index 0000000..51f505e
+--- /dev/null
++++ b/bptime/count.py
+@@ -0,0 +1,64 @@
++from os import path 
++d = path.abspath('.')
++import os
++import re
++
++def utf8open(filename):
++    return open(filename, encoding='utf-8', errors='ignore')
++
++def utf8open_w(filename):
++    return open(filename, 'w+', encoding='utf-8', errors='ignore')
++
++
++def parsep(file_lines):
++    allsum = 0
++    size = 0
++    for line in file_lines:
++        id = int(line.split(':')[0])
++        time = float(line.split(':')[1])
++        allsum = allsum + time
++        size += 1
++    return (allsum,size)
++
++def myparse(opt_time, ori_time):
++    rs = 0
++    count = 0
++    size = len(opt_time)
++    i = 0 
++    t1c = 0
++    t2c = 0
++    rmin = 100
++    idmin = 0
++    rmax = -1
++    idmax = 0
++    while i<size:
++        line1 = opt_time[i]
++        line2 = ori_time[i]
++        if(len(line1.split(':')) == 2):
++            id = int(line1.split(':')[0])
++            time1 = float(line1.split(':')[1])
++            time2 = float(line2.split(':')[1])
++            ratio = time2 / time1
++            print(f'{id}, opt = {time1}, ori = {time2}, ratio = {ratio}')
++            if(rmin > ratio):
++                rmin = ratio
++                idmin = id
++            if(rmax <ratio):
++                rmax = ratio
++                idmax = id
++            rs += ratio
++            count +=1
++            t1c += time1
++            t2c += time2
++        i+=1
++    print(f'rmin = {rmin}, id = {idmin}')
++    print(f'rmax = {rmax}, id = {idmax}')
++    return (rs,count,t1c,t2c)
++
++
++if __name__ == '__main__':
++    opt_time = utf8open('./opt/parsetime.log').readlines()
++    ori_time = utf8open('./ori/parsetime.log').readlines()
++    rs,c,t1c,t2c = myparse(opt_time, ori_time)
++    print(f'total = {rs}, size = {c}, t1c = {t1c}, t2c = {t2c}')
++    print(f'average parse time {rs/(c)}')
+diff --git a/pylib/defects4j.py b/pylib/defects4j.py
+index c33557b..73c7ad7 100644
+--- a/pylib/defects4j.py
++++ b/pylib/defects4j.py
+@@ -388,6 +388,27 @@ def parse(proj: str, id: str, debug=True):
+     os.system(cmdline)
+ 
+ 
++def parsebp(optimize, clean = False):
++    if(clean and optimize == 'opt'):
++        os.system('rm ./bptime/opt/bp.log')
++    elif clean:
++        os.system('rm ./bptime/ori/bp.log')
++    os.system('mvn compile')
++    testcases = utf8open('./testcases').readlines()
++    cmdlines = []
++    for line in testcases:
++        line = line.strip()
++        proj = line.split('-')[0]
++        id = line.split('-')[1]
++        cmdline = f'mvn exec:java "-Dexec.mainClass=ppfl.defects4j.GraphBuilder" "-Dexec.args={proj} {id} {optimize}"'
++        cmdlines.append(cmdline)
++    # print(cmdlines[0])
++    # os.system(cmdlines[0])
++    with Pool(processes=1) as pool:
++        pool.map(os.system, cmdlines)
++        pool.close()
++        pool.join()
++
+ def parseproj(proj: str, debug=True):
+     time_start = time.time()
+     os.system('mvn compile')
+@@ -467,6 +488,22 @@ def traceproj(proj:str,id: str, doBuild = True):
+     else:
+         rund4j(proj,id)
+ 
++def tracebp(doBuild = True):
++    if doBuild:
++        os.system('mvn package -DskipTests')
++    testcases = utf8open('./testcases').readlines()
++    cmdlines = []
++    for line in testcases:
++        line = line.strip()
++        proj = line.split('-')[0]
++        id = line.split('-')[1]
++        cmdlines.append(f'python3 s.py rund4j {proj} {id} -nb')
++    processesnum = 1
++    with Pool(processes=processesnum) as pool:
++        pool.map(os.system, cmdlines)
++        pool.close()
++        pool.join()
++
+ def testproj(proj: str):
+     time_start = time.time()
+     os.system('mvn package -DskipTests')
+diff --git a/s.py b/s.py
+index 4391d81..c50f552 100644
+--- a/s.py
++++ b/s.py
+@@ -191,6 +191,17 @@ if __name__ == '__main__':
+             d4j.eval(args[2], args[3])
+         if(len(args) == 3):
+             d4j.parseproj(args[2])
++    
++    if args[1] == 'runbp':
++        d4j.tracebp()
++    
++    if args[1] == 'parsebp':
++        if(len(args) == 4):
++            d4j.parsebp(args[2], args[3] == 'clean')
++        else:
++            d4j.parsebp(args[2])
++    
++
+     if args[1] == 'clearcache':
+         d4j.clearcache(args[2], args[3])
+         d4j.cleanupcheckout(args[2], args[3])
+diff --git a/src/main/java/ppfl/ByteCodeGraph.java b/src/main/java/ppfl/ByteCodeGraph.java
+index 6b4615c..4b335bc 100644
+--- a/src/main/java/ppfl/ByteCodeGraph.java
++++ b/src/main/java/ppfl/ByteCodeGraph.java
+@@ -2226,7 +2226,10 @@ public class ByteCodeGraph {
+ 		for (int i = 0; i < bp_times; i++) {
+ 			boolean isend = true;
+ 			for (FactorNode n : factornodes) {
+-				n.send_message();
++				if(FactorNode.nontrivial)
++					n.send_message();
++				else
++					n.sendMessage();
+ 			}
+ 			for (Node n : nodes) {
+ 				if (n.send_message())
+@@ -2236,13 +2239,13 @@ public class ByteCodeGraph {
+ 				if (n.send_message())
+ 					isend = false;
+ 			}
+-			if (isend) {
+-				if (debug_logger_switch)
+-					graphLogger.writeln("\n\n%d\n\n", i);
+-				resultLogger.writeln("Belief propagation time: %d\n", i);
+-				loopend = true;
+-				break;
+-			}
++			// if (isend) {
++			// 	if (debug_logger_switch)
++			// 		graphLogger.writeln("\n\n%d\n\n", i);
++			// 	resultLogger.writeln("Belief propagation time: %d\n", i);
++			// 	loopend = true;
++			// 	break;
++			// }
+ 		}
+ 		if (!loopend)
+ 			resultLogger.writeln("Belief propagation time: %d\n", bp_times);
+diff --git a/src/main/java/ppfl/FactorNode.java b/src/main/java/ppfl/FactorNode.java
+index bf5ba3f..f178aba 100644
+--- a/src/main/java/ppfl/FactorNode.java
++++ b/src/main/java/ppfl/FactorNode.java
+@@ -15,6 +15,8 @@ public class FactorNode {
+ 	protected static MyWriter debugLogger = WriterUtils.getWriter("Debugger");
+ 	protected static MyWriter printLogger = WriterUtils.getWriter("GraphLogger");
+ 
++	public static boolean nontrivial = false;
++
+ 	private List<Node> preds;
+ 	private Node def;
+ 	private Node stmt;
+@@ -35,7 +37,7 @@ public class FactorNode {
+ 	private boolean use_ap = false;
+ 	private List<Node> allnodes;
+ 	private List<Edge> alledges;
+-	private int nnodes;
++	public int nnodes;
+ 	private double stmtvalue;
+ 	boolean hasUNKoperator = true;
+ 
+@@ -135,6 +137,7 @@ public class FactorNode {
+ 		// if (use_ap)
+ 		// 	ap_gettensor(allnodes, nnodes - 1);
+ 		// else
++		if(nontrivial)
+ 			gettensor(allnodes, nnodes - 1);
+ 	}
+ 
+@@ -171,6 +174,41 @@ public class FactorNode {
+ 	// 	ap_gettensor(allnodes, cur - 1);
+ 	// }
+ 
++	public void sendMessage(){
++		List<Edge> puedges = new ArrayList<>();
++		puedges.addAll(pedges);
++		puedges.addAll(uedges);
++
++		double put = 1;
++		for (Edge n : puedges) 
++			put = put * n.get_ntof();
++
++		double dv = dedge.get_ntof();
++		double sv = sedge.get_ntof();
++
++		double sv1 = HIGH * dv * put + MEDIUM_HIGH * (1 - dv) * (1 - put) + LOW * (1 - dv) * put + MEDIUM_LOW * dv * (1 - put);
++		double sv0 = MEDIUM_HIGH * (1 - dv) + MEDIUM_LOW * dv;
++		sedge.set_fton(sv1 / (sv1 + sv0));
++
++		double dv1 = HIGH * sv * put + MEDIUM_LOW * (1 - sv * put);
++		double dv0 = MEDIUM_HIGH * (1 - sv * put) + LOW * sv * put;
++		dedge.set_fton(dv1 / (dv1 + dv0));
++
++		for (Edge n : puedges) {
++			double spu = sv * put / n.get_ntof();
++			if(Double.isNaN(spu)){
++				spu = sv;
++				for (Edge e : puedges)
++					if(e != n) 
++						spu = spu * e.get_ntof();
++			}
++			double nv1 = HIGH * spu * dv + MEDIUM_LOW * (1 - spu) * dv + LOW * spu * (1-dv) + MEDIUM_HIGH * (1- spu) * (1-dv); 
++			double nv0 = MEDIUM_HIGH * (1 - dv) + MEDIUM_LOW * dv;
++			n.set_fton(nv1 / (nv1 + nv0));
++		}
++
++	}
++
+ 	public void send_message() {
+ 		if (!use_ap) {
+ 			// used to save all the messages from the nodes
+diff --git a/src/main/java/ppfl/defects4j/GraphBuilder.java b/src/main/java/ppfl/defects4j/GraphBuilder.java
+index df42ca6..ae0a5a8 100644
+--- a/src/main/java/ppfl/defects4j/GraphBuilder.java
++++ b/src/main/java/ppfl/defects4j/GraphBuilder.java
+@@ -8,6 +8,7 @@ import java.io.FileWriter;
+ import java.io.IOException;
+ 
+ import ppfl.ByteCodeGraph;
++import ppfl.FactorNode;
+ import ppfl.WriterUtils;
+ 
+ public class GraphBuilder {
+@@ -131,12 +132,24 @@ public class GraphBuilder {
+   public static void main(String args[]) {
+ 
+     // Runtime.getRuntime().addShutdownHook(WriterUtils.cleanup());
+-    long startTime = System.currentTimeMillis();
++    // long startTime = System.currentTimeMillis();
+     ByteCodeGraph pgraph = new ByteCodeGraph();
+ 
+     pgraph.setAutoOracle(true);
+     pgraph.setTraceAllClassed(false);
+     boolean usesimple = false;
++
++    boolean testbp = false;
++    boolean optimize = false;
++    if(args.length == 3){
++      testbp = true;
++      optimize = args[2].equals("opt");
++    }
++    if(optimize)
++      FactorNode.nontrivial = false;
++    else
++      FactorNode.nontrivial = true;
++
+     if (args.length >= 2) {
+       System.out.println("Start parsing for " + args[0] + args[1]);
+       setupD4jProject(pgraph, args[0], Integer.parseInt(args[1]), usesimple);
+@@ -146,6 +159,7 @@ public class GraphBuilder {
+     // pgraph.initD4jProject();
+     //
+     // pgraph.printgraph();
++    long startTime = System.currentTimeMillis();
+     pgraph.check_bp(true);
+     System.out.println("BP finished for " + args[0] + args[1]);
+ 
+@@ -156,11 +170,25 @@ public class GraphBuilder {
+       long endTime = System.currentTimeMillis();
+       long thetime = endTime - startTime;
+       File f = new File(String.format("./tracetime/parsetime_%s.log", args[0]));
+-      try (BufferedWriter bWriter = new BufferedWriter(new FileWriter(f, true))) {
+-        bWriter.write(args[1] + ":" + thetime / 1000.0 + "\n");
+-        bWriter.flush();
+-      } catch (IOException e) {
+-  
++      if(testbp){
++        if(optimize)
++          f = new File(String.format("./bptime/opt/bp.log"));
++        else
++          f = new File(String.format("./bptime/ori/bp.log"));
++        try (BufferedWriter bWriter = new BufferedWriter(new FileWriter(f, true))) {
++          bWriter.write(args[0]+"-"+args[1] + ":" + thetime / 1000.0 + "\n");
++          bWriter.flush();
++        } catch (IOException e) {
++    
++        }
++      }
++      else{
++        try (BufferedWriter bWriter = new BufferedWriter(new FileWriter(f, true))) {
++          bWriter.write(args[1] + ":" + thetime / 1000.0 + "\n");
++          bWriter.flush();
++        } catch (IOException e) {
++    
++        }
+       }
+     }
+ 
+diff --git a/testcases b/testcases
+new file mode 100644
+index 0000000..e718341
+--- /dev/null
++++ b/testcases
+@@ -0,0 +1,198 @@
++Chart-1
++Chart-2
++Chart-3
++Chart-4
++Chart-5
++Chart-6
++Chart-7
++Chart-8
++Chart-9
++Chart-10
++Chart-11
++Chart-12
++Chart-13
++Chart-14
++Chart-15
++Chart-16
++Chart-17
++Chart-18
++Chart-19
++Chart-20
++Chart-21
++Chart-22
++Chart-23
++Chart-24
++Chart-26
++Lang-1
++Lang-3
++Lang-4
++Lang-5
++Lang-6
++Lang-7
++Lang-9
++Lang-10
++Lang-11
++Lang-12
++Lang-13
++Lang-14
++Lang-15
++Lang-16
++Lang-17
++Lang-18
++Lang-19
++Lang-20
++Lang-21
++Lang-22
++Lang-23
++Lang-24
++Lang-25
++Lang-26
++Lang-27
++Lang-28
++Lang-29
++Lang-30
++Lang-31
++Lang-32
++Lang-33
++Lang-34
++Lang-35
++Lang-36
++Lang-37
++Lang-38
++Lang-39
++Lang-40
++Lang-41
++Lang-42
++Lang-43
++Lang-44
++Lang-45
++Lang-46
++Lang-47
++Lang-48
++Lang-49
++Lang-50
++Lang-51
++Lang-52
++Lang-53
++Lang-54
++Lang-55
++Lang-56
++Lang-57
++Lang-58
++Lang-59
++Lang-60
++Lang-61
++Lang-62
++Lang-63
++Lang-64
++Lang-65
++Math-1
++Math-2
++Math-3
++Math-4
++Math-5
++Math-8
++Math-9
++Math-12
++Math-18
++Math-19
++Math-20
++Math-21
++Math-22
++Math-23
++Math-24
++Math-25
++Math-26
++Math-27
++Math-28
++Math-29
++Math-30
++Math-31
++Math-32
++Math-33
++Math-34
++Math-35
++Math-36
++Math-37
++Math-38
++Math-40
++Math-41
++Math-42
++Math-43
++Math-45
++Math-46
++Math-47
++Math-48
++Math-49
++Math-50
++Math-51
++Math-52
++Math-53
++Math-55
++Math-56
++Math-57
++Math-58
++Math-60
++Math-61
++Math-62
++Math-63
++Math-66
++Math-67
++Math-69
++Math-70
++Math-72
++Math-73
++Math-75
++Math-76
++Math-77
++Math-79
++Math-80
++Math-81
++Math-82
++Math-83
++Math-84
++Math-85
++Math-86
++Math-87
++Math-88
++Math-89
++Math-90
++Math-91
++Math-92
++Math-93
++Math-94
++Math-95
++Math-96
++Math-97
++Math-98
++Math-99
++Math-101
++Math-102
++Math-103
++Math-104
++Math-105
++Math-106
++Time-1
++Time-2
++Time-3
++Time-4
++Time-5
++Time-6
++Time-7
++Time-8
++Time-9
++Time-10
++Time-11
++Time-12
++Time-13
++Time-14
++Time-15
++Time-16
++Time-17
++Time-18
++Time-19
++Time-22
++Time-23
++Time-24
++Time-26
++Time-27
