@@ -107,7 +107,7 @@ void CausalBP::setProperties(const PropertySet &opts ) {
     else
         props.inference = Properties::InfType::SUMPROD;
     if( opts.hasKey("fastcausal"))
-        props.fastcausal = true;
+        props.fastcausal = opts.getStringAs<bool>("fastcausal");
     else
         props.fastcausal = false;
 }
@@ -328,11 +328,11 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
 //                        Real a1 = (arg0 * prod_j[0] + arg1 * prod_j[1]);
                         Real a1 = prod_j1;
 //                        Real delta = (1-arg0)*prod_j[0] + (1-arg1)*prod_j[1];
+                        t0 *= a0;
+                        t1 *= a1;
+                        CausalScale(t0, t1);
                         if (!props.fastcausal) {
                             Real delta = prod_j0;
-                            t0 *= a0;
-                            t1 *= a1;
-                            CausalScale(t0, t1);
                             if (a1 != 0 && a0 == a1 && delta != 0) {
                                 e1 += delta / a1;
                             }
@@ -371,7 +371,7 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                             t1 *= prod_j1;
                             t0 *= prod_j0 + prod_j1;
                         }
-                        if (!props.fastcausal)
+//                        if (!props.fastcausal)
                             CausalScale(t0, t1);
                     }
                 }
@@ -414,11 +414,11 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                         
                         Real a0 = prod_j0 + prod_j1;
                         Real a1 = prod_j0;
+                        t0 *= a0;
+                        t1 *= a1;
+                        CausalScale(t0, t1);
                         if (!props.fastcausal) {
                             Real delta = prod_j1;
-                            t0 *= a0;
-                            t1 *= a1;
-                            CausalScale(t0, t1);
                             if (a1 != 0 && a0 == a1 && delta != 0) {
                                 e1 += delta / a1;
                             }
@@ -456,7 +456,7 @@ void CausalBP::calcNewMessage(size_t i, size_t _I ) {
                             t1 *= prod_j0;
                             t0 *= prod_j0 + prod_j1;
                         }
-                        if (!props.fastcausal)
+//                        if (!props.fastcausal)
                             CausalScale(t0, t1);
                     }
                 }
@@ -614,13 +614,12 @@ double CausalBP::run(double tolerance, size_t minIters, size_t maxIters, size_t 
                     auto & m = message(i, I.iter);
                     vMsg[0].accumulate(props.logdomain, I, m[0]);
                     vMsg[1].accumulate(props.logdomain, I, m[1]);
-                    if (!props.fastcausal) {
+//                    if (!props.fastcausal)
                         if (props.logdomain) {
                             CausalScaleLog(vMsg[0].msg, vMsg[1].msg);
                         } else {
                             CausalScale(vMsg[0].msg, vMsg[1].msg);
                         }
-                    }
                 }
             }
         }/* else if (props.updates == Properties::UpdateType::SEQRNDPAR) {
@@ -808,13 +807,12 @@ Real CausalBP::run() {
                     auto & m = newMessage(i, I.iter);
                     vMsg[0].accumulate(props.logdomain, I, m[0]);
                     vMsg[1].accumulate(props.logdomain, I, m[1]);
-                    if (!props.fastcausal) {
+//                    if (!props.fastcausal)
                         if (props.logdomain) {
                             CausalScaleLog(vMsg[0].msg, vMsg[1].msg);
                         } else {
                             CausalScale(vMsg[0].msg, vMsg[1].msg);
                         }
-                    }
                 }
             }
         } else {
@@ -972,13 +970,12 @@ void CausalBP::updateMessage(size_t i, size_t _I ) {
         auto &vMsg = varMsgs[i];
         vMsg[0].reset(I, origMsg[0], props.logdomain).accumulate(props.logdomain, I, newMsg[0]);
         vMsg[1].reset(I, origMsg[1], props.logdomain).accumulate(props.logdomain, I, newMsg[1]);
-        if (!props.fastcausal) {
+//        if (!props.fastcausal)
             if (props.logdomain) {
                 CausalScaleLog(vMsg[0].msg, vMsg[1].msg);
             } else {
                 CausalScale(vMsg[0].msg, vMsg[1].msg);
             }
-        }
     }
     message(i,_I) = newMsg;
 }
