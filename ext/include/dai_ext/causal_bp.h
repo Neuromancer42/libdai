@@ -80,6 +80,9 @@ namespace dai {
 
             /// Inference variant
             InfType inference;
+
+            /// Whether needs high precision fix
+            bool fastcausal;
         } props;
 
 //        /// Specifies whether the history of message updates should be recorded

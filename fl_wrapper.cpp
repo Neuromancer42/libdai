@@ -102,6 +102,7 @@ int main(int argc, char *argv[]) {
         opts.set("verbose", verbose);
         opts.set("updates", std::string("SEQRND"));
         opts.set("logdomain", true);
+        opts.set("fastcausal", true);
 
         if (orig)
             infalg = new dai::BP(*fg, opts);
