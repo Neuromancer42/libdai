@@ -19,7 +19,7 @@ size_t verbose = 10;
 
 int main(int argc, char *argv[]) {
     if (argc < 5) {
-        cerr << "Usage: ./wrapper-test-bp <factor-graph> <ORIG|CAUSAL> <query> <output> [<obs> [<maxiter> [<maxtime> [<tol> [mapping]]]]]" << endl;
+        cerr << "Usage: ./wrapper-test-bp <factor-graph> <ORIG|CAUSAL> <query> <output> [<obs> [<maxiter> [<maxtime> [<tol> [<seed> [<mapping>]]]]]]" << endl;
         return 1;
     }
     string fgFileName = argv[1];
@@ -69,6 +69,13 @@ int main(int argc, char *argv[]) {
         maxtime = std::stoi(argv[7]);
     if (argc > 8)
         tol = std::stod(argv[8]);
+    if (argc > 9) {
+        size_t seed = std::stoul(argv[9]);
+#ifndef NDEBUG
+        clog << "Set manual random seed " << seed << endl;
+#endif
+        dai::rnd_seed(seed);
+    }
 
 #ifndef NDEBUG
     std::clog << "LibDAI: Loading factor graph from " << fgFileName << std::endl;
@@ -101,8 +108,7 @@ int main(int argc, char *argv[]) {
         opts.set("tol", dai::Real(tol));
         opts.set("verbose", verbose);
         opts.set("updates", std::string("SEQRND"));
-        opts.set("logdomain", true);
-        opts.set("fastcausal", true);
+        opts.set("logdomain", false);
 
         if (orig)
             infalg = new dai::BP(*fg, opts);
@@ -139,7 +145,7 @@ int main(int argc, char *argv[]) {
             }
             catch (Exception &err) {
                 assert(err.code() == Exception::OBJECT_NOT_FOUND);
-#ifndef NDEBUG \
+#ifndef NDEBUG
                 clog << "(?)";
 #endif
                 continue;
@@ -209,8 +215,8 @@ int main(int argc, char *argv[]) {
     std::clog << "LibDAI: dumping output to " << outputFileName << std::endl;
 #endif
     ofstream out(outputFileName.c_str());
-    if (argc > 9) {
-        string mapFileName = argv[9];
+    if (argc > 10) {
+        string mapFileName = argv[10];
         ifstream mapFile(mapFileName);
 #ifndef NDEBUG
         clog << "Loading map from " << mapFileName << endl;
