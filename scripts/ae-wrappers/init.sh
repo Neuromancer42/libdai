@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-export CFORK=$HOME/artifact/Error-Ranking/chord-fork
+export CFORK=$HOME/Projects/bingo-artifact/bingo_commands
 
 #################################################################################
 # Initialization

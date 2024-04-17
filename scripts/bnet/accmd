@@ -14,13 +14,38 @@ export PREFIX=$6         # prefix for output files/dirs to allow multiple instan
 MAX=$((MIN + 500))
 
 
-mkdir ${PREFIX}combined
+mkdir -p ${PREFIX}combined
 
+SEED=$RANDOM
+
+run_orig() {
+echo "Launching orig BP"
 nohup ./scripts/bnet/driver.py \
                          $PROBLEM_DIR/bnet/$AUG_DIR/bnet-dict.out \
                          $PROBLEM_DIR/bnet/$AUG_DIR/factor-graph.fg \
                          $BASE_FILE \
                          $ORACLE_FILE \
-                         > ${PREFIX}driver.out 2> ${PREFIX}driver.log <<EOF
-AC 1e-6 $MIN $MAX 100 ${PREFIX}stats.txt ${PREFIX}combined/ out
+                         $SEED \
+                         > ${PREFIX}driver.orig.out 2> ${PREFIX}driver.orig.log <<EOF
+AC 1e-6 $MIN $MAX 100 ${PREFIX}stats.orig.txt ${PREFIX}combined/ orig.out
 EOF
+}
+
+run_causal() {
+echo "Launching causal BP"
+nohup ./scripts/bnet/driver.py \
+                         $PROBLEM_DIR/bnet/$AUG_DIR/bnet-dict.out \
+                         $PROBLEM_DIR/bnet/$AUG_DIR/factor-graph.causal_fg \
+                         $BASE_FILE \
+                         $ORACLE_FILE \
+                         $SEED \
+                         > ${PREFIX}driver.causal.out 2> ${PREFIX}driver.causal.log <<EOF
+AC 1e-6 $MIN $MAX 100 ${PREFIX}stats.causal.txt ${PREFIX}combined/ causal.out
+EOF
+}
+
+run_orig &
+
+run_causal &
+
+wait

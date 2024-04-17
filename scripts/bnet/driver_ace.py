@@ -22,18 +22,13 @@ import subprocess
 import sys
 import time
 import re
-import random
 
 dictFileName = sys.argv[1]
 fgFileName = sys.argv[2]
 baseQueriesFileName = sys.argv[3]
 oracleQueriesFileName = sys.argv[4]
 
-if len(sys.argv) > 5:
-    seed = int(sys.argv[5])
-    random.seed(seed)
-
-wrapperExecutable = './libdai/bin/bingo_wrapper'
+wrapperExecutable = './ace/ace_wrapper'
 
 logging.basicConfig(level=logging.INFO, \
                     format="[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s", \
@@ -67,9 +62,9 @@ logging.info('Populated {0} base queries.'.format(len(baseQueries)))
 unoptimizedRun = 1 if ("noaugment_unopt" in fgFileName) else 0
 
 ########################################################################################################################
-# 2. Start LibDAI/wrapper.cpp, and interact with the user
+# 2. Start ace_wrapper.py, and interact with the user
 
-with subprocess.Popen([wrapperExecutable, fgFileName, str(random.randrange(32768))], \
+with subprocess.Popen([wrapperExecutable, fgFileName], \
                       stdin=subprocess.PIPE, \
                       stdout=subprocess.PIPE, \
                       universal_newlines=True) as wrapperProc:

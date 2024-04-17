@@ -43,7 +43,7 @@ elif [[ $AUGMENT_DIR == augment* ]]
 then
    export AUGMENT="augment"
 else
-   echo "Invalid value for AUGMENT_DIR"
+   echo "Invalid value for AUGMENT_DIR $AUGMENT_DIR"
    exit 1
 fi
 
@@ -65,6 +65,11 @@ if [[ ! "$@" =~ "oldbnet" ]]; then
       < $PROGRAM_PATH/${BNET_DIR}/bnet/$AUGMENT_DIR/named_cons_all.txt.pruned \
       > $PROGRAM_PATH/${BNET_DIR}/bnet/$AUGMENT_DIR/named-bnet.out \
       2> $PROGRAM_PATH/${BNET_DIR}/bnet/$AUGMENT_DIR/cons_all2bnet.log
+
+  # ./scripts/bnet/cons_all2bnet.py $PROGRAM_PATH/${BNET_DIR}/bnet/$AUGMENT_DIR/causal_bnet-dict.out \
+  #     < $PROGRAM_PATH/${BNET_DIR}/bnet/$AUGMENT_DIR/named_cons_all.txt.pruned \
+  #     > $PROGRAM_PATH/${BNET_DIR}/bnet/$AUGMENT_DIR/named-causal_bnet.out \
+  #     2> $PROGRAM_PATH/${BNET_DIR}/bnet/$AUGMENT_DIR/cons_all2causal_bnet.log
 fi
 
 # ./scripts/bnet/leaky-bnet2fg.py $RULE_PROB_FILENAME 0.999 0.0001 \
@@ -72,6 +77,11 @@ fi
     < $PROGRAM_PATH/${BNET_DIR}/bnet/$AUGMENT_DIR/named-bnet.out \
     > $PROGRAM_PATH/${BNET_DIR}/bnet/$AUGMENT_DIR/factor-graph.fg \
     2> $PROGRAM_PATH/${BNET_DIR}/bnet/$AUGMENT_DIR/bnet2fg.log
+
+./scripts/bnet/bnet2causal_fg.py $RULE_PROB_FILENAME 0.999 \
+    < $PROGRAM_PATH/${BNET_DIR}/bnet/$AUGMENT_DIR/named-bnet.out \
+    > $PROGRAM_PATH/${BNET_DIR}/bnet/$AUGMENT_DIR/factor-graph.causal_fg \
+    2> $PROGRAM_PATH/${BNET_DIR}/bnet/$AUGMENT_DIR/bnet2causal_fg.log
 
 #if [ -x "$(command -v zenity)" ]; then
   #zenity --info --text="Finished running build-bnet.sh!" &> /dev/null &
