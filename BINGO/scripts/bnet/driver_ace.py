@@ -28,7 +28,7 @@ fgFileName = sys.argv[2]
 baseQueriesFileName = sys.argv[3]
 oracleQueriesFileName = sys.argv[4]
 
-wrapperExecutable = './ace/ace_wrapper'
+wrapperExecutable = '$ACE/ace_wrapper'
 
 logging.basicConfig(level=logging.INFO, \
                     format="[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s", \

@@ -19,15 +19,15 @@ run_benchmark() {
       exit 1
    fi
    anal=${analysis[$bmk]}
-   if [ ! -d $HOME/Projects/bingo-artifact/results/$anal/$bmk/output ]; then
-      mkdir -p $HOME/Projects/bingo-artifact/results/$anal/$bmk/output
+   if [ ! -d $BINGO_RESULTS/$anal/$bmk/output ]; then
+      mkdir -p $BINGO_RESULTS/$anal/$bmk/output
    fi
 
    pushd $CFORK
    source ./scripts/setpaths.sh
 
    build-bnet.sh opt $bmk
-   exact_out=$HOME/Projects/bingo-artifact/results/$anal/$bmk/output/exact
+   exact_out=$BINGO_RESULTS/$anal/$bmk/output/exact
    if [ ! -d $exact_out ]; then
       mkdir -p $exact_out
       echo "Starting Bingo (opt) run..."

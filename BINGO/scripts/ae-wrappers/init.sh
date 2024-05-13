@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 
-export CFORK=$HOME/Projects/bingo-artifact/bingo_commands
+if [[ -z "${LIBDAI}" ]]; then
+    echo "run `export LIBDAI=<path-to-LIBDAI-root>` before"
+    exit 1
+fi
+export CFORK=$LIBDAI/BINGO
+
+if [[ -z "${BINGO_RESULTS}" ]]; then
+    export BINGO_RESULTS="/tmp/results/"
+    echo "set result path to ${BINGO_RESULTS}"
+fi
 
 #################################################################################
 # Initialization

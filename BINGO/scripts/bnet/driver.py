@@ -33,7 +33,7 @@ if len(sys.argv) > 5:
     seed = int(sys.argv[5])
     random.seed(seed)
 
-wrapperExecutable = './libdai/bin/bingo_wrapper'
+wrapperExecutable = '$LIBDAI/bin/bingo_wrapper'
 
 logging.basicConfig(level=logging.INFO, \
                     format="[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s", \
