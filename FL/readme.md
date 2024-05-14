@@ -6,6 +6,8 @@ get SmartFL from https://github.com/toledosakasa/SMARTFL and set up Defects4j ac
 ```
 cd "Path2SmartFL"
 git apply "Path2ThisRepo"/bp.patch
+mkdir bptime/ori
+mkdir bptime/opt
 ```
 
 ## Generate traces
