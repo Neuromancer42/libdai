@@ -6,11 +6,6 @@ if [[ -z "${LIBDAI}" ]]; then
 fi
 export CFORK=$LIBDAI/BINGO
 
-if [[ -z "${BINGO_RESULTS}" ]]; then
-    export BINGO_RESULTS="/tmp/results/"
-    echo "set result path to ${BINGO_RESULTS}"
-fi
-
 #################################################################################
 # Initialization
 benchmarks=()

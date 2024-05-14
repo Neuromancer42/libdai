@@ -1,23 +1,28 @@
 #!/usr/bin/env bash
 
-if [[ -z "${LIBDAI}" ]]; then
-    echo "run `export LIBDAI=<path-to-LIBDAI-root>` before"
-    exit 1
-fi
-export CFORK=$LIBDAI/BINGO
-
-if [ -z $1 ]; then
-  echo "usage: init.sh <rea-path-to-PJBENCH>"
+if [ -z "${LIBDAI}" ]; then
+  echo "run `export LIBDAI=<path-to-LIBDAI-root>` before"
   exit 1
 fi
-if [ -L $CFORK/pjbench ]; then
-  echo "replace old bench link"
-  rm $CFORK/pjbench
+
+if [ -z "${BINGO_RESULTS}" ]; then
+  export BINGO_RESULTS="/tmp/results/"
 fi
-ln -s $1 $CFORK/pjbench
+echo "set result path to ${BINGO_RESULTS}"
+
+if [ -z $1 ]; then
+  echo "usage: init.sh <real-path-to-PJBENCH>"
+  exit 1
+fi
+
+if [ -L $LIBDAI/BINGO/pjbench ]; then
+  echo "replace old bench link"
+  rm $LIBDAI/BINGO/pjbench
+fi
+ln -s $1 $LIBDAI/BINGO/pjbench
 
 # { prune-cons
-pushd $CFORK/scripts/bnet/prune-cons
+pushd $LIBDAI/BINGO/scripts/bnet/prune-cons
 ./build.sh
 if [ $? -ne 0 ]; then
   echo "Build failed: prune-cons"
@@ -36,4 +41,4 @@ fi
 popd
 # }
 
-export PATH=$CFORK/scripts/ae-wrappers/:$PATH
+export PATH=$LIBDAI/BINGO/scripts/ae-wrappers/:$PATH

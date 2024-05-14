@@ -23,6 +23,7 @@ import sys
 import time
 import re
 import random
+import os
 
 dictFileName = sys.argv[1]
 fgFileName = sys.argv[2]
@@ -33,7 +34,7 @@ if len(sys.argv) > 5:
     seed = int(sys.argv[5])
     random.seed(seed)
 
-wrapperExecutable = '$LIBDAI/bin/bingo_wrapper'
+wrapperExecutable = os.path.join(os.environ['LIBDAI'], 'bin', 'bingo_wrapper')
 
 logging.basicConfig(level=logging.INFO, \
                     format="[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s", \

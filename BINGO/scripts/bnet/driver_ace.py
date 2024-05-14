@@ -22,13 +22,14 @@ import subprocess
 import sys
 import time
 import re
+import os
 
 dictFileName = sys.argv[1]
 fgFileName = sys.argv[2]
 baseQueriesFileName = sys.argv[3]
 oracleQueriesFileName = sys.argv[4]
 
-wrapperExecutable = '$ACE/ace_wrapper'
+wrapperExecutable = os.path.join(os.environ['ACE'], 'ace_wrapper')
 
 logging.basicConfig(level=logging.INFO, \
                     format="[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s", \
