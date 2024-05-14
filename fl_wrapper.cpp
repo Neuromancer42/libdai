@@ -107,9 +107,9 @@ int main(int argc, char *argv[]) {
         opts.set("maxtime", dai::Real(maxtime));
         opts.set("tol", dai::Real(tol));
         opts.set("verbose", verbose);
-        opts.set("updates", std::string("SEQRND"));
+        opts.set("updates", std::string("SEQFIX"));
         opts.set("logdomain", false);
-        opts.set("fastcausal", true);
+        opts.set("fastcausal", false);
 
         if (orig)
             infalg = new dai::BP(*fg, opts);
